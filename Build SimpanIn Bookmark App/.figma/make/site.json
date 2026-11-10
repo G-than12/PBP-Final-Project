@@ -1,0 +1,10 @@
+{
+  "description": "Save links and images from anywhere, organize them into collections, and revisit them with search and Focus Mode—all in one simple personal library.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
