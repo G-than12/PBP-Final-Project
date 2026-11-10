@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  Platform,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -152,7 +153,12 @@ export function SaveLinkSheet({
 
   return (
     <NeoBottomSheet visible={visible} title="Simpan ke SimpanIn" onClose={onClose}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* URL Input */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: theme.text }]}>Tautan / URL Web</Text>
@@ -362,6 +368,12 @@ export function SaveLinkSheet({
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
   inputGroup: {
     marginBottom: 16,
   },
@@ -392,6 +404,7 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     fontSize: 14,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   pasteBtn: {
     flexDirection: "row",
@@ -412,15 +425,18 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingHorizontal: 12,
     fontSize: 14,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   notesInput: {
-    height: 76,
+    minHeight: 76,
     borderRadius: 12,
     borderWidth: 2,
     paddingHorizontal: 12,
     paddingTop: 10,
+    paddingBottom: 10,
     fontSize: 14,
     textAlignVertical: "top",
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   toggleCard: {
     flexDirection: "row",
@@ -430,9 +446,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     marginBottom: 16,
+    gap: 8,
   },
   toggleText: {
     flex: 1,
+    paddingRight: 6,
   },
   toggleTitle: {
     fontSize: 14,

@@ -41,45 +41,46 @@ export function NeoConfirmModal({
       animationType="fade"
       onRequestClose={onCancel}
     >
-      <TouchableWithoutFeedback onPress={onCancel}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View
-              style={[
-                styles.box,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: isDark ? "#4A4640" : "#000000",
-                },
-                NEO_SHADOW_LG,
-              ]}
+      <View style={styles.overlay}>
+        {/* Backdrop touchable to close */}
+        <TouchableWithoutFeedback onPress={onCancel}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+
+        <View
+          style={[
+            styles.box,
+            {
+              backgroundColor: theme.surface,
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+            NEO_SHADOW_LG,
+          ]}
+        >
+          <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
+          <Text style={[styles.message, { color: theme.textMuted }]}>
+            {message}
+          </Text>
+
+          <View style={styles.btnRow}>
+            <NeoButton
+              variant="secondary"
+              onPress={onCancel}
+              style={styles.btn}
             >
-              <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
-              <Text style={[styles.message, { color: theme.textMuted }]}>
-                {message}
-              </Text>
+              {cancelText}
+            </NeoButton>
 
-              <View style={styles.btnRow}>
-                <NeoButton
-                  variant="secondary"
-                  onPress={onCancel}
-                  style={styles.btn}
-                >
-                  {cancelText}
-                </NeoButton>
-
-                <NeoButton
-                  variant={isDestructive ? "danger" : "primary"}
-                  onPress={onConfirm}
-                  style={styles.btn}
-                >
-                  {confirmText}
-                </NeoButton>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
+            <NeoButton
+              variant={isDestructive ? "danger" : "primary"}
+              onPress={onConfirm}
+              style={styles.btn}
+            >
+              {confirmText}
+            </NeoButton>
+          </View>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }

@@ -46,7 +46,11 @@ export function ShareGuideModal({ visible, onClose }: ShareGuideModalProps) {
 
   return (
     <NeoBottomSheet visible={visible} title="Panduan Menyimpan Tautan" onClose={onClose}>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={[styles.introText, { color: theme.textMuted }]}>
           Simpan konten favorit Anda dari aplikasi mana pun hanya dalam 4 langkah mudah:
         </Text>
@@ -72,7 +76,10 @@ export function ShareGuideModal({ visible, onClose }: ShareGuideModalProps) {
 
 const styles = StyleSheet.create({
   scroll: {
-    maxHeight: 460,
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   introText: {
     fontSize: 13,

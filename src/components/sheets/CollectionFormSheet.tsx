@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Check } from "lucide-react-native";
@@ -50,6 +51,13 @@ export function CollectionFormSheet({
   const [selectedColor, setSelectedColor] = useState<string>(FOLDER_COLORS[0]);
   const [selectedIcon, setSelectedIcon] = useState<string>(FOLDER_ICONS[0]);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+
+  // Responsively calculate item size so 8 items fit per row cleanly with 8px gaps
+  const itemSize =
+    gridWidth > 0
+      ? Math.min(48, Math.max(28, Math.floor((gridWidth - 7 * 8) / 8)))
+      : 34;
 
   useEffect(() => {
     if (visible) {
@@ -89,7 +97,12 @@ export function CollectionFormSheet({
       title={editingCollection ? "Edit Koleksi" : "Tambah Koleksi Baru"}
       onClose={onClose}
     >
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Name Input */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: theme.text }]}>Nama Koleksi</Text>
@@ -115,7 +128,10 @@ export function CollectionFormSheet({
           <Text style={[styles.label, { color: theme.text }]}>
             PILIH WARNA (16 PILIHAN)
           </Text>
-          <View style={styles.colorGrid}>
+          <View
+            style={styles.colorGrid}
+            onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}
+          >
             {FOLDER_COLORS.map((c) => {
               const isSelected = selectedColor === c;
               return (
@@ -123,7 +139,11 @@ export function CollectionFormSheet({
                   key={c}
                   style={[
                     styles.colorSquare,
-                    { backgroundColor: c },
+                    {
+                      width: itemSize,
+                      height: itemSize,
+                      backgroundColor: c,
+                    },
                     isSelected && styles.colorSquareSelected,
                   ]}
                   onPress={() => {
@@ -152,6 +172,8 @@ export function CollectionFormSheet({
                   style={[
                     styles.iconSquare,
                     {
+                      width: itemSize,
+                      height: itemSize,
                       backgroundColor: isSelected ? selectedColor : theme.surface,
                       borderColor: isSelected ? "#000000" : isDark ? "#4A4640" : "#000000",
                     },
@@ -162,7 +184,11 @@ export function CollectionFormSheet({
                     setSelectedIcon(ic);
                   }}
                 >
-                  <AppIcon name={ic} size={18} color="#000000" />
+                  <AppIcon
+                    name={ic}
+                    size={Math.max(14, Math.floor(itemSize * 0.5))}
+                    color="#000000"
+                  />
                 </TouchableOpacity>
               );
             })}
@@ -244,6 +270,12 @@ export function CollectionFormSheet({
 }
 
 const styles = StyleSheet.create({
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 28,
+  },
   inputGroup: {
     marginBottom: 16,
   },
@@ -262,6 +294,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     paddingHorizontal: 12,
     fontSize: 14,
+    ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   colorGrid: {
     flexDirection: "row",
@@ -269,9 +302,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   colorSquare: {
-    width: "10.5%",
-    aspectRatio: 1,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 2,
     borderColor: "#000000",
     justifyContent: "center",
@@ -291,9 +322,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconSquare: {
-    width: "10.5%",
-    aspectRatio: 1,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",

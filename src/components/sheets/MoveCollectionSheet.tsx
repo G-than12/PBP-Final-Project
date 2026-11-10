@@ -40,7 +40,11 @@ export function MoveCollectionSheet({
 
   return (
     <NeoBottomSheet visible={visible} title="Pindahkan ke Koleksi" onClose={onClose}>
-      <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
         {collections.map((col) => {
           const isCurrent = col.id === currentCollectionId;
           return (
@@ -95,7 +99,10 @@ export function MoveCollectionSheet({
 
 const styles = StyleSheet.create({
   scroll: {
-    maxHeight: 380,
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
   itemRow: {
     flexDirection: "row",
