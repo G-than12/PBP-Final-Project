@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,17 +8,30 @@ import {
   StyleSheet,
   Switch,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { Plus, X, Clipboard as ClipboardIcon } from "lucide-react-native";
+import {
+  Plus,
+  X,
+  Clipboard as ClipboardIcon,
+  RefreshCw,
+} from "lucide-react-native";
 import { Collection } from "../../types/models";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
-import { parseUrlMetadata } from "../../utils/metadataParser";
+import {
+  extractFirstUrl,
+  fetchUrlMetadata,
+  isFetchableUrl,
+  normalizeUrl,
+  parseUrlMetadata,
+} from "../../utils/metadataParser";
 import { NeoBottomSheet } from "../ui/NeoBottomSheet";
 import { NeoButton } from "../ui/NeoButton";
 import { AppIcon } from "../ui/AppIcon";
+import { LinkThumbnail } from "../ui/LinkThumbnail";
 
 interface SaveLinkSheetProps {
   visible: boolean;
@@ -35,6 +48,7 @@ interface SaveLinkSheetProps {
     isPinned: boolean;
     notes?: string;
     tags?: string[];
+    image?: string;
   }) => void;
   onRequestCreateCollection: () => void;
 }
@@ -49,10 +63,15 @@ export function SaveLinkSheet({
   onRequestCreateCollection,
 }: SaveLinkSheetProps) {
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
+  const autoExtractMetadata = useSimpanInStore(
+    (state) => state.settings.autoExtractMetadata
+  );
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
   const [url, setUrl] = useState(initialUrl);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
   const [selectedColId, setSelectedColId] = useState(
     defaultCollectionId || collections[0]?.id || "inbox"
   );
@@ -61,38 +80,89 @@ export function SaveLinkSheet({
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [detectedPlatform, setDetectedPlatform] = useState("Web");
+  const [isFetchingMeta, setIsFetchingMeta] = useState(false);
+  const [metaNotice, setMetaNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (visible) {
-      if (initialUrl) {
-        handleUrlChange(initialUrl);
-      } else {
-        checkClipboard();
-      }
-      if (defaultCollectionId) {
-        setSelectedColId(defaultCollectionId);
-      }
-    } else {
-      setUrl("");
-      setTitle("");
-      setNotes("");
-      setTags([]);
-      setTagInput("");
-      setIsPinned(false);
-      setDetectedPlatform("Web");
+  const isTitleManualRef = useRef(false);
+  const isDescManualRef = useRef(false);
+  const isImageManualRef = useRef(false);
+  const isTagsManualRef = useRef(false);
+  const fetchRequestIdRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPendingFetch = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
     }
-  }, [visible, initialUrl, defaultCollectionId]);
+  };
 
-  const handleUrlChange = (newUrl: string) => {
-    setUrl(newUrl);
-    if (newUrl.trim().length > 4) {
-      const parsed = parseUrlMetadata(newUrl);
-      setDetectedPlatform(parsed.platform);
-      if (!title) {
-        setTitle(parsed.inferredTitle);
+  const runMetadataFetch = async (targetUrl: string) => {
+    const cleanTarget = extractFirstUrl(targetUrl);
+    if (!isFetchableUrl(cleanTarget)) return;
+
+    const reqId = ++fetchRequestIdRef.current;
+    setIsFetchingMeta(true);
+    setMetaNotice(null);
+
+    try {
+      const meta = await fetchUrlMetadata(cleanTarget);
+      if (reqId !== fetchRequestIdRef.current) return;
+
+      setDetectedPlatform(meta.platform);
+      if (!isTitleManualRef.current) {
+        setTitle(meta.title);
       }
-      if (tags.length === 0 && parsed.suggestedTags.length > 0) {
-        setTags(parsed.suggestedTags);
+      if (!isDescManualRef.current) {
+        setDescription(meta.description);
+      }
+      if (!isImageManualRef.current) {
+        setImageUrl(meta.image || "");
+      }
+      if (!isTagsManualRef.current && meta.suggestedTags.length > 0) {
+        setTags(meta.suggestedTags);
+      }
+      setMetaNotice(meta.notice || null);
+    } catch {
+      if (reqId !== fetchRequestIdRef.current) return;
+      setMetaNotice("Gagal mengambil pratinjau tautan otomatis.");
+    } finally {
+      if (reqId === fetchRequestIdRef.current) {
+        setIsFetchingMeta(false);
+      }
+    }
+  };
+
+  const handleUrlChange = (newUrl: string, immediate = false) => {
+    setUrl(newUrl);
+    clearPendingFetch();
+
+    const trimmed = newUrl.trim();
+    if (trimmed.length <= 4) return;
+
+    const parsed = parseUrlMetadata(trimmed);
+    setDetectedPlatform(parsed.platform);
+
+    if (!isTitleManualRef.current) {
+      setTitle(parsed.inferredTitle);
+    }
+    if (!isDescManualRef.current) {
+      setDescription(parsed.inferredDescription);
+    }
+    if (!isImageManualRef.current) {
+      setImageUrl("");
+    }
+    if (!isTagsManualRef.current && parsed.suggestedTags.length > 0) {
+      setTags(parsed.suggestedTags);
+    }
+
+    if (autoExtractMetadata && isFetchableUrl(trimmed)) {
+      if (immediate) {
+        runMetadataFetch(trimmed);
+      } else {
+        debounceTimerRef.current = setTimeout(() => {
+          runMetadataFetch(trimmed);
+        }, 450);
       }
     }
   };
@@ -102,49 +172,113 @@ export function SaveLinkSheet({
       const hasStr = await Clipboard.hasStringAsync();
       if (hasStr) {
         const text = await Clipboard.getStringAsync();
-        if (text && (text.startsWith("http://") || text.startsWith("https://"))) {
-          handleUrlChange(text);
+        const extracted = extractFirstUrl(text || "");
+        if (extracted && /^https?:\/\//i.test(extracted) && isFetchableUrl(extracted)) {
+          handleUrlChange(extracted, true);
         }
       }
-    } catch {}
+    } catch {
+      // ignore clipboard read failure
+    }
   };
+
+  useEffect(() => {
+    if (visible) {
+      isTitleManualRef.current = false;
+      isDescManualRef.current = false;
+      isImageManualRef.current = false;
+      isTagsManualRef.current = false;
+      setMetaNotice(null);
+
+      if (initialUrl) {
+        handleUrlChange(initialUrl, true);
+      } else {
+        checkClipboard();
+      }
+      if (defaultCollectionId) {
+        setSelectedColId(defaultCollectionId);
+      }
+    } else {
+      clearPendingFetch();
+      fetchRequestIdRef.current += 1;
+      setUrl("");
+      setTitle("");
+      setDescription("");
+      setImageUrl("");
+      setNotes("");
+      setTags([]);
+      setTagInput("");
+      setIsPinned(false);
+      setDetectedPlatform("Web");
+      setIsFetchingMeta(false);
+      setMetaNotice(null);
+      isTitleManualRef.current = false;
+      isDescManualRef.current = false;
+      isImageManualRef.current = false;
+      isTagsManualRef.current = false;
+    }
+
+    return () => {
+      clearPendingFetch();
+    };
+  }, [visible, initialUrl, defaultCollectionId]);
 
   const handlePaste = async () => {
     Haptics.selectionAsync();
     try {
       const text = await Clipboard.getStringAsync();
       if (text) {
-        handleUrlChange(text);
+        const extracted = extractFirstUrl(text);
+        isTitleManualRef.current = false;
+        isDescManualRef.current = false;
+        isImageManualRef.current = false;
+        isTagsManualRef.current = false;
+        handleUrlChange(extracted || text, true);
       }
-    } catch {}
+    } catch {
+      // ignore clipboard error
+    }
+  };
+
+  const handleManualRefreshMeta = () => {
+    if (!isFetchableUrl(url)) return;
+    Haptics.selectionAsync();
+    isTitleManualRef.current = false;
+    isDescManualRef.current = false;
+    isImageManualRef.current = false;
+    runMetadataFetch(url);
   };
 
   const handleAddTag = () => {
     const clean = tagInput.trim().toLowerCase().replace(/^#/, "");
     if (clean && !tags.includes(clean)) {
+      isTagsManualRef.current = true;
       setTags([...tags, clean]);
       setTagInput("");
     }
   };
 
   const handleRemoveTag = (tag: string) => {
+    isTagsManualRef.current = true;
     setTags(tags.filter((t) => t !== tag));
   };
 
   const handleSave = () => {
     if (!url.trim()) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const parsed = parseUrlMetadata(url);
+    const cleanUrl = normalizeUrl(url);
+    const parsed = parseUrlMetadata(cleanUrl);
 
     onSave({
-      url: url.trim(),
+      url: cleanUrl,
       title: title.trim() || parsed.inferredTitle,
-      description: parsed.inferredDescription,
+      description: description.trim() || parsed.inferredDescription,
       source: detectedPlatform,
       collectionId: selectedColId,
       isPinned,
       notes: notes.trim(),
       tags,
+      image: imageUrl.trim() || undefined,
     });
     onClose();
   };
@@ -176,7 +310,7 @@ export function SaveLinkSheet({
               placeholder="https://..."
               placeholderTextColor={theme.textSecondary}
               value={url}
-              onChangeText={handleUrlChange}
+              onChangeText={(val) => handleUrlChange(val, false)}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
@@ -197,6 +331,85 @@ export function SaveLinkSheet({
           </View>
         </View>
 
+        {/* Live Metadata & Thumbnail Preview */}
+        {url.trim().length > 4 && (
+          <View
+            style={[
+              styles.previewCard,
+              {
+                backgroundColor: theme.cardSecondary,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <LinkThumbnail
+              image={imageUrl}
+              tags={tags}
+              symbolSize="sm"
+              style={styles.previewThumb}
+            />
+            <View style={styles.previewBody}>
+              <View style={styles.previewTopRow}>
+                <View style={styles.previewBadge}>
+                  <Text style={styles.previewBadgeText}>{detectedPlatform}</Text>
+                </View>
+                {isFetchableUrl(url) && (
+                  <TouchableOpacity
+                    style={[
+                      styles.refreshMetaBtn,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: isDark ? "#4A4640" : "#000000",
+                      },
+                    ]}
+                    onPress={handleManualRefreshMeta}
+                    disabled={isFetchingMeta}
+                  >
+                    {isFetchingMeta ? (
+                      <ActivityIndicator size="small" color={theme.text} />
+                    ) : (
+                      <RefreshCw size={12} color={theme.text} />
+                    )}
+                    <Text style={[styles.refreshMetaText, { color: theme.text }]}>
+                      {isFetchingMeta ? "Memuat..." : "Ambil Info"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text
+                style={[styles.previewTitle, { color: theme.text }]}
+                numberOfLines={2}
+              >
+                {isFetchingMeta
+                  ? "Mengambil thumbnail, judul & deskripsi..."
+                  : title || "Judul otomatis"}
+              </Text>
+              <Text
+                style={[styles.previewDesc, { color: theme.textSecondary }]}
+                numberOfLines={2}
+              >
+                {description || "Deskripsi akan terisi otomatis dari tautan."}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {metaNotice && (
+          <View
+            style={[
+              styles.noticeBox,
+              {
+                backgroundColor: isDark ? "#2E2B28" : "#FFF8DF",
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <Text style={[styles.noticeText, { color: theme.text }]}>
+              {metaNotice}
+            </Text>
+          </View>
+        )}
+
         {/* Title Input */}
         <View style={styles.inputGroup}>
           <Text style={[styles.label, { color: theme.text }]}>Judul</Text>
@@ -212,7 +425,61 @@ export function SaveLinkSheet({
             placeholder="Judul simpanan..."
             placeholderTextColor={theme.textSecondary}
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(txt) => {
+              isTitleManualRef.current = txt.trim().length > 0;
+              setTitle(txt);
+            }}
+          />
+        </View>
+
+        {/* Description Input */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: theme.text }]}>Deskripsi</Text>
+          <TextInput
+            style={[
+              styles.notesInput,
+              {
+                backgroundColor: theme.cardSecondary,
+                borderColor: isDark ? "#4A4640" : "#000000",
+                color: theme.text,
+              },
+            ]}
+            placeholder="Deskripsi postingan (terisi otomatis jika tersedia)..."
+            placeholderTextColor={theme.textSecondary}
+            value={description}
+            onChangeText={(txt) => {
+              isDescManualRef.current = txt.trim().length > 0;
+              setDescription(txt);
+            }}
+            multiline
+            numberOfLines={3}
+          />
+        </View>
+
+        {/* Optional Thumbnail URL Input */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.label, { color: theme.text }]}>
+            URL Gambar Thumbnail (Opsional)
+          </Text>
+          <TextInput
+            style={[
+              styles.singleInput,
+              {
+                backgroundColor: theme.cardSecondary,
+                borderColor: isDark ? "#4A4640" : "#000000",
+                color: theme.text,
+              },
+            ]}
+            placeholder="Terisi otomatis dari tautan (https://...)"
+            placeholderTextColor={theme.textSecondary}
+            value={imageUrl}
+            onChangeText={(txt) => {
+              isImageManualRef.current = txt.trim().length > 0;
+              setImageUrl(txt);
+            }}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
           />
         </View>
 
@@ -418,6 +685,78 @@ const styles = StyleSheet.create({
   pasteText: {
     fontSize: 12,
     fontWeight: "700",
+  },
+  previewCard: {
+    flexDirection: "row",
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 10,
+    gap: 10,
+    marginBottom: 14,
+    alignItems: "center",
+  },
+  previewThumb: {
+    width: 84,
+    height: 84,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#000000",
+  },
+  previewBody: {
+    flex: 1,
+    gap: 4,
+  },
+  previewTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 6,
+  },
+  previewBadge: {
+    backgroundColor: "#111111",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  previewBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+  },
+  refreshMetaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.5,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  refreshMetaText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  previewTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 17,
+  },
+  previewDesc: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  noticeBox: {
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+  noticeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
   },
   singleInput: {
     height: 44,
