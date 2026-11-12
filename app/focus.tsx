@@ -19,6 +19,7 @@ import { AppIcon } from "../src/components/ui/AppIcon";
 import { SimpanInMascot } from "../src/components/ui/SimpanInMascot";
 import { NeoButton } from "../src/components/ui/NeoButton";
 import { NeoCard } from "../src/components/ui/NeoCard";
+import { LinkThumbnail } from "../src/components/ui/LinkThumbnail";
 import { safeBack } from "../src/utils/navigation";
 
 export default function FocusModeScreen() {
@@ -94,22 +95,6 @@ export default function FocusModeScreen() {
 
   const currentItem = queue[currentIndex];
   const collection = collections.find((c) => c.id === currentItem.collectionId) || collections[0];
-
-  const getVisualConfig = () => {
-    const imgType = currentItem.image || (currentItem.tags.includes("resep") ? "food" : currentItem.tags.includes("interior") ? "home" : currentItem.tags.includes("jepang") ? "travel" : "web");
-    switch (imgType) {
-      case "food":
-        return { bg: "#ED7847", symbol: "15" };
-      case "home":
-        return { bg: "#9CD7BE", symbol: "⌂" };
-      case "travel":
-        return { bg: "#E7A997", symbol: "京都" };
-      default:
-        return { bg: "#9DC3E9", symbol: "↗" };
-    }
-  };
-
-  const visual = getVisualConfig();
 
   const handleOpenLink = async () => {
     Haptics.selectionAsync();
@@ -189,9 +174,12 @@ export default function FocusModeScreen() {
         {/* Tinder-style Focus Card */}
         <NeoCard style={styles.focusCard}>
           {/* Visual Hero Banner matching Figma */}
-          <View style={[styles.visualHero, { backgroundColor: visual.bg }]}>
-            <Text style={styles.visualSymbol}>{visual.symbol}</Text>
-          </View>
+          <LinkThumbnail
+            image={currentItem.image}
+            tags={currentItem.tags}
+            symbolSize="md"
+            style={styles.visualHero}
+          />
 
           <View style={styles.cardTopRow}>
             <View style={[styles.iconBox, { backgroundColor: collection.color }]}>
@@ -352,17 +340,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
     borderColor: "#000000",
-    justifyContent: "center",
-    alignItems: "center",
     marginBottom: 14,
-  },
-  visualSymbol: {
-    fontSize: 54,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textShadowColor: "#000000",
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 0,
   },
   focusHelp: {
     marginTop: 16,
