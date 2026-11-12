@@ -5,6 +5,7 @@ import { Pin } from "lucide-react-native";
 import { SavedItem } from "../../types/models";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
+import { LinkThumbnail } from "./LinkThumbnail";
 
 interface FigmaItemCardProps {
   item: SavedItem;
@@ -20,24 +21,6 @@ export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
     onPress();
   };
 
-  // Determine visual color and symbol based on image / tags / source
-  const getVisualConfig = () => {
-    const imgType = item.image || (item.tags.includes("resep") ? "food" : item.tags.includes("interior") ? "home" : item.tags.includes("jepang") ? "travel" : "web");
-    
-    switch (imgType) {
-      case "food":
-        return { bg: "#ED7847", symbol: "15" };
-      case "home":
-        return { bg: "#9CD7BE", symbol: "⌂" };
-      case "travel":
-        return { bg: "#E7A997", symbol: "京都" };
-      default:
-        return { bg: "#9DC3E9", symbol: "↗" };
-    }
-  };
-
-  const visual = getVisualConfig();
-
   return (
     <Pressable
       onPress={handlePress}
@@ -51,9 +34,12 @@ export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
       ]}
     >
       {/* Top Visual Box */}
-      <View style={[styles.visualBox, { backgroundColor: visual.bg }]}>
-        <Text style={styles.visualSymbol}>{visual.symbol}</Text>
-
+      <LinkThumbnail
+        image={item.image}
+        tags={item.tags}
+        symbolSize="md"
+        style={styles.visualBox}
+      >
         {/* BARU Badge */}
         {!item.isReviewed && (
           <View style={styles.freshBadge}>
@@ -67,7 +53,7 @@ export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
             <Pin size={12} color="#000000" fill="#000000" />
           </View>
         )}
-      </View>
+      </LinkThumbnail>
 
       {/* Item Meta & Title */}
       <View style={styles.body}>
@@ -109,18 +95,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#000000",
     borderRadius: 4,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
-  },
-  visualSymbol: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textShadowColor: "#000000",
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 0,
   },
   freshBadge: {
     position: "absolute",
