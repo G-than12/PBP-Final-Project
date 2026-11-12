@@ -1,8 +1,30 @@
+import { Platform } from "react-native";
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
+import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Collection, SavedItem, SortOption, AppSettings } from "../types/models";
 import { FOLDER_COLORS } from "../constants/theme";
+
+const ssrSafeStorage: StateStorage = {
+  getItem: async (name) => {
+    if (Platform.OS === "web" && typeof window === "undefined") {
+      return null;
+    }
+    return AsyncStorage.getItem(name);
+  },
+  setItem: async (name, value) => {
+    if (Platform.OS === "web" && typeof window === "undefined") {
+      return;
+    }
+    await AsyncStorage.setItem(name, value);
+  },
+  removeItem: async (name) => {
+    if (Platform.OS === "web" && typeof window === "undefined") {
+      return;
+    }
+    await AsyncStorage.removeItem(name);
+  },
+};
 
 export const SYSTEM_COLLECTION: Collection = {
   id: "inbox",
@@ -407,7 +429,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
     }),
     {
       name: "simpanin_app_store_v2",
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => ssrSafeStorage),
     }
   )
 );
