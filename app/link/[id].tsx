@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -29,9 +30,10 @@ import { useSimpanInStore } from "../../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { NeoButton } from "../../src/components/ui/NeoButton";
 import { NeoConfirmModal } from "../../src/components/ui/NeoConfirmModal";
+import { LinkThumbnail } from "../../src/components/ui/LinkThumbnail";
 import { MoveCollectionSheet } from "../../src/components/sheets/MoveCollectionSheet";
 import { TagManagerSheet } from "../../src/components/sheets/TagManagerSheet";
-import { formatDateRelative } from "../../src/utils/metadataParser";
+import { formatDateRelative, fetchUrlMetadata } from "../../src/utils/metadataParser";
 import { safeBack } from "../../src/utils/navigation";
 
 export default function LinkDetailScreen() {
@@ -55,8 +57,12 @@ export default function LinkDetailScreen() {
   const [showTagSheet, setShowTagSheet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showReloadConfirm, setShowReloadConfirm] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
+  const [reloadStatus, setReloadStatus] = useState<string | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
+  const [isEditingDesc, setIsEditingDesc] = useState(false);
+  const [editedDesc, setEditedDesc] = useState("");
 
   const currentItem = useMemo(() => {
     return items.find((i) => i.id === id);
@@ -79,32 +85,6 @@ export default function LinkDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  // Visual background & symbol matching Figma
-  const getVisualConfig = () => {
-    const imgType =
-      currentItem.image ||
-      (currentItem.tags.includes("resep")
-        ? "food"
-        : currentItem.tags.includes("interior")
-        ? "home"
-        : currentItem.tags.includes("jepang")
-        ? "travel"
-        : "web");
-
-    switch (imgType) {
-      case "food":
-        return { bg: "#ED7847", symbol: "15" };
-      case "home":
-        return { bg: "#9CD7BE", symbol: "⌂" };
-      case "travel":
-        return { bg: "#E7A997", symbol: "京都" };
-      default:
-        return { bg: "#9DC3E9", symbol: "↗" };
-    }
-  };
-
-  const visual = getVisualConfig();
 
   const handleOpenLink = async () => {
     Haptics.selectionAsync();
@@ -156,11 +136,50 @@ export default function LinkDetailScreen() {
     setIsEditingTitle(false);
   };
 
+  const handleSaveDesc = () => {
+    Haptics.selectionAsync();
+    updateLink(currentItem.id, { description: editedDesc.trim() });
+    setIsEditingDesc(false);
+  };
+
+  const handleReloadMetadata = async () => {
+    setShowReloadConfirm(false);
+    setIsReloading(true);
+    setReloadStatus(null);
+    try {
+      const meta = await fetchUrlMetadata(currentItem.url);
+      if (meta.fetchedFromRemote) {
+        updateLink(currentItem.id, {
+          title: meta.title || currentItem.title,
+          description: meta.description || currentItem.description,
+          source: meta.platform || currentItem.source,
+          ...(meta.image ? { image: meta.image } : {}),
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setReloadStatus("Thumbnail, judul & deskripsi berhasil diperbarui dari tautan.");
+      } else {
+        setReloadStatus(
+          meta.notice ||
+            "Pratinjau otomatis tidak tersedia dari situs ini. Kamu tetap bisa edit judul/deskripsi secara manual."
+        );
+      }
+    } catch {
+      setReloadStatus("Gagal mengambil metadata tautan. Periksa koneksi internet.");
+    } finally {
+      setIsReloading(false);
+    }
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Figma Detail Hero Banner */}
-        <View style={[styles.detailHero, { backgroundColor: visual.bg }]}>
+        <LinkThumbnail
+          image={currentItem.image}
+          tags={currentItem.tags}
+          symbolSize="lg"
+          style={styles.detailHero}
+        >
           {/* Back button */}
           <TouchableOpacity
             style={styles.heroBackBtn}
@@ -172,9 +191,6 @@ export default function LinkDetailScreen() {
           >
             <ChevronLeft size={22} color="#000000" />
           </TouchableOpacity>
-
-          {/* Giant Symbol */}
-          <Text style={styles.heroGiantSymbol}>{visual.symbol}</Text>
 
           {/* Pin toggle button */}
           <TouchableOpacity
@@ -194,7 +210,7 @@ export default function LinkDetailScreen() {
               fill={currentItem.isPinned ? "#000000" : "none"}
             />
           </TouchableOpacity>
-        </View>
+        </LinkThumbnail>
 
         {/* Figma Detail Body */}
         <View style={styles.detailBody}>
@@ -282,9 +298,16 @@ export default function LinkDetailScreen() {
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" }]}
               onPress={() => setShowReloadConfirm(true)}
+              disabled={isReloading}
             >
-              <RotateCcw size={16} color={theme.text} />
-              <Text style={[styles.actionBtnText, { color: theme.text }]}>Muat Ulang</Text>
+              {isReloading ? (
+                <ActivityIndicator size="small" color={theme.text} />
+              ) : (
+                <RotateCcw size={16} color={theme.text} />
+              )}
+              <Text style={[styles.actionBtnText, { color: theme.text }]}>
+                {isReloading ? "Memuat..." : "Muat Ulang"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -296,17 +319,75 @@ export default function LinkDetailScreen() {
             </TouchableOpacity>
           </View>
 
+          {reloadStatus && (
+            <View
+              style={[
+                styles.statusBanner,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFF8DF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.statusBannerText, { color: theme.text }]}>
+                {reloadStatus}
+              </Text>
+            </View>
+          )}
+
           {/* Section: DESKRIPSI */}
-          {currentItem.description ? (
-            <View style={styles.detailSection}>
+          <View style={styles.detailSection}>
+            <View style={styles.sectionHeaderRow}>
               <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                 DESKRIPSI
               </Text>
-              <Text style={[styles.descText, { color: theme.text }]}>
-                {currentItem.description}
-              </Text>
+              {!isEditingDesc && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditedDesc(currentItem.description || "");
+                    setIsEditingDesc(true);
+                  }}
+                >
+                  <Edit3 size={14} color={theme.textSecondary} />
+                </TouchableOpacity>
+              )}
             </View>
-          ) : null}
+            {isEditingDesc ? (
+              <View style={styles.descEditCol}>
+                <TextInput
+                  style={[
+                    styles.notesTextarea,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                      color: theme.text,
+                      minHeight: 72,
+                    },
+                  ]}
+                  multiline
+                  value={editedDesc}
+                  onChangeText={setEditedDesc}
+                  placeholder="Tulis deskripsi tautan..."
+                  placeholderTextColor={theme.textSecondary}
+                />
+                <View style={styles.descEditActions}>
+                  <TouchableOpacity
+                    style={[styles.titleSaveBtn, { backgroundColor: theme.surface }]}
+                    onPress={() => setIsEditingDesc(false)}
+                  >
+                    <Text style={[styles.titleSaveBtnText, { color: theme.text }]}>Batal</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.titleSaveBtn} onPress={handleSaveDesc}>
+                    <Text style={styles.titleSaveBtnText}>Simpan Deskripsi</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <Text style={[styles.descText, { color: currentItem.description ? theme.text : theme.textSecondary }]}>
+                {currentItem.description || "Belum ada deskripsi. Ketuk ikon pensil untuk menambahkan."}
+              </Text>
+            )}
+          </View>
 
           {/* Section: TAG */}
           <View style={styles.detailSection}>
@@ -388,14 +469,10 @@ export default function LinkDetailScreen() {
       <NeoConfirmModal
         visible={showReloadConfirm}
         title="Muat Ulang Metadata Link?"
-        message="Muat Ulang akan memperbarui pratinjau link. Catatan, status sematan, dan koleksimu tidak akan berubah."
+        message="Muat Ulang akan mengambil ulang thumbnail, judul, dan deskripsi terbaru dari tautan. Catatan, status sematan, dan koleksimu tidak akan berubah."
         confirmText="Ya, Muat Ulang"
         cancelText="Batal"
-        onConfirm={() => {
-          setShowReloadConfirm(false);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert("Metadata Diperbarui", "Data pratinjau telah disegarkan.");
-        }}
+        onConfirm={handleReloadMetadata}
         onCancel={() => setShowReloadConfirm(false)}
       />
 
@@ -435,9 +512,6 @@ const styles = StyleSheet.create({
     height: 280,
     borderBottomWidth: 2,
     borderColor: "#000000",
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
   },
   heroBackBtn: {
     position: "absolute",
@@ -480,13 +554,30 @@ const styles = StyleSheet.create({
   heroPinBtnActive: {
     backgroundColor: "#F7CB54",
   },
-  heroGiantSymbol: {
-    fontSize: 92,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textShadowColor: "#000000",
-    textShadowOffset: { width: 4, height: 4 },
-    textShadowRadius: 0,
+  statusBanner: {
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 16,
+  },
+  statusBannerText: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  descEditCol: {
+    gap: 8,
+  },
+  descEditActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
   },
   detailBody: {
     padding: 20,
