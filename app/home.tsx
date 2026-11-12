@@ -24,6 +24,7 @@ import {
 import { useSimpanInStore } from "../src/store/useSimpanInStore";
 import { Collection, SavedItem, SortOption } from "../src/types/models";
 import { THEME_LIGHT, THEME_DARK } from "../src/constants/theme";
+import { extractFirstUrl, isFetchableUrl } from "../src/utils/metadataParser";
 import { SimpanInMascot } from "../src/components/ui/SimpanInMascot";
 import { ManilaFolderCard } from "../src/components/ui/ManilaFolderCard";
 import { FigmaItemCard } from "../src/components/ui/FigmaItemCard";
@@ -104,8 +105,9 @@ export default function HomeScreen() {
     Haptics.selectionAsync();
     try {
       const text = await Clipboard.getStringAsync();
-      if (text && (text.startsWith("http://") || text.startsWith("https://"))) {
-        setQuickUrl(text.trim());
+      const extracted = extractFirstUrl(text || "");
+      if (extracted && /^https?:\/\//i.test(extracted) && isFetchableUrl(extracted)) {
+        setQuickUrl(extracted);
       }
     } catch {
       // ignore
@@ -114,8 +116,9 @@ export default function HomeScreen() {
 
   const handleQuickSubmit = () => {
     Haptics.selectionAsync();
-    if (quickUrl.trim()) {
-      setSaveInitialUrl(quickUrl.trim());
+    const extracted = extractFirstUrl(quickUrl);
+    if (extracted) {
+      setSaveInitialUrl(extracted);
       setShowSaveSheet(true);
       setQuickUrl("");
     } else {
