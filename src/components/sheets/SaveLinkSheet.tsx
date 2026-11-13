@@ -27,11 +27,13 @@ import {
   isFetchableUrl,
   normalizeUrl,
   parseUrlMetadata,
+  preserveFormattingDescription,
 } from "../../utils/metadataParser";
 import { NeoBottomSheet } from "../ui/NeoBottomSheet";
 import { NeoButton } from "../ui/NeoButton";
 import { AppIcon } from "../ui/AppIcon";
 import { LinkThumbnail } from "../ui/LinkThumbnail";
+import { TagBadge } from "../ui/TagBadge";
 
 interface SaveLinkSheetProps {
   visible: boolean;
@@ -49,6 +51,7 @@ interface SaveLinkSheetProps {
     notes?: string;
     tags?: string[];
     image?: string;
+    author?: string;
   }) => void;
   onRequestCreateCollection: () => void;
 }
@@ -77,6 +80,7 @@ export function SaveLinkSheet({
   );
   const [isPinned, setIsPinned] = useState(false);
   const [notes, setNotes] = useState("");
+  const [author, setAuthor] = useState("");
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [detectedPlatform, setDetectedPlatform] = useState("Web");
@@ -110,6 +114,9 @@ export function SaveLinkSheet({
       if (reqId !== fetchRequestIdRef.current) return;
 
       setDetectedPlatform(meta.platform);
+      if (meta.author) {
+        setAuthor(meta.author);
+      }
       if (!isTitleManualRef.current) {
         setTitle(meta.title);
       }
@@ -167,61 +174,55 @@ export function SaveLinkSheet({
     }
   };
 
-  const checkClipboard = async () => {
-    try {
-      const hasStr = await Clipboard.hasStringAsync();
-      if (hasStr) {
-        const text = await Clipboard.getStringAsync();
-        const extracted = extractFirstUrl(text || "");
-        if (extracted && /^https?:\/\//i.test(extracted) && isFetchableUrl(extracted)) {
-          handleUrlChange(extracted, true);
-        }
-      }
-    } catch {
-      // ignore clipboard read failure
-    }
+  const resetAllFields = () => {
+    clearPendingFetch();
+    fetchRequestIdRef.current += 1;
+    setUrl("");
+    setTitle("");
+    setDescription("");
+    setAuthor("");
+    setImageUrl("");
+    setNotes("");
+    setTags([]);
+    setTagInput("");
+    setIsPinned(false);
+    setDetectedPlatform("Web");
+    setIsFetchingMeta(false);
+    setMetaNotice(null);
+    isTitleManualRef.current = false;
+    isDescManualRef.current = false;
+    isImageManualRef.current = false;
+    isTagsManualRef.current = false;
   };
 
   useEffect(() => {
     if (visible) {
-      isTitleManualRef.current = false;
-      isDescManualRef.current = false;
-      isImageManualRef.current = false;
-      isTagsManualRef.current = false;
-      setMetaNotice(null);
+      // Always reset all fields to completely fresh and empty upon opening
+      resetAllFields();
 
-      if (initialUrl) {
-        handleUrlChange(initialUrl, true);
-      } else {
-        checkClipboard();
-      }
       if (defaultCollectionId) {
         setSelectedColId(defaultCollectionId);
+      } else if (collections[0]?.id) {
+        setSelectedColId(collections[0].id);
+      }
+
+      // Only populate URL if explicitly provided from parent (e.g. Quick Save Bar)
+      if (initialUrl && initialUrl.trim()) {
+        handleUrlChange(initialUrl.trim(), true);
       }
     } else {
-      clearPendingFetch();
-      fetchRequestIdRef.current += 1;
-      setUrl("");
-      setTitle("");
-      setDescription("");
-      setImageUrl("");
-      setNotes("");
-      setTags([]);
-      setTagInput("");
-      setIsPinned(false);
-      setDetectedPlatform("Web");
-      setIsFetchingMeta(false);
-      setMetaNotice(null);
-      isTitleManualRef.current = false;
-      isDescManualRef.current = false;
-      isImageManualRef.current = false;
-      isTagsManualRef.current = false;
+      resetAllFields();
     }
 
     return () => {
       clearPendingFetch();
     };
   }, [visible, initialUrl, defaultCollectionId]);
+
+  const handleCloseSheet = () => {
+    resetAllFields();
+    onClose();
+  };
 
   const handlePaste = async () => {
     Haptics.selectionAsync();
@@ -272,21 +273,23 @@ export function SaveLinkSheet({
     onSave({
       url: cleanUrl,
       title: title.trim() || parsed.inferredTitle,
-      description: description.trim() || parsed.inferredDescription,
+      description: preserveFormattingDescription(description.trim()) || parsed.inferredDescription,
       source: detectedPlatform,
+      author: author.trim() || undefined,
       collectionId: selectedColId,
       isPinned,
       notes: notes.trim(),
       tags,
       image: imageUrl.trim() || undefined,
     });
+    resetAllFields();
     onClose();
   };
 
   const selectedCol = collections.find((c) => c.id === selectedColId) || collections[0];
 
   return (
-    <NeoBottomSheet visible={visible} title="Simpan ke SimpanIn" onClose={onClose}>
+    <NeoBottomSheet visible={visible} title="Simpan ke SimpanIn" onClose={handleCloseSheet}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -578,21 +581,13 @@ export function SaveLinkSheet({
 
           {tags.length > 0 && (
             <View style={styles.tagsWrapper}>
-              {tags.map((t) => (
-                <TouchableOpacity
+              {tags.map((t, idx) => (
+                <TagBadge
                   key={t}
-                  style={[
-                    styles.tagBadge,
-                    {
-                      backgroundColor: theme.cardSecondary,
-                      borderColor: isDark ? "#4A4640" : "#000000",
-                    },
-                  ]}
-                  onPress={() => handleRemoveTag(t)}
-                >
-                  <Text style={[styles.tagBadgeText, { color: theme.text }]}>#{t}</Text>
-                  <X size={12} color={theme.textSecondary} />
-                </TouchableOpacity>
+                  name={t}
+                  index={idx}
+                  onRemove={() => handleRemoveTag(t)}
+                />
               ))}
             </View>
           )}

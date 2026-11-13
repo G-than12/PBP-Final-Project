@@ -273,11 +273,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    height: 68,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 12,
     borderBottomWidth: 2,
   },
   backBtn: {

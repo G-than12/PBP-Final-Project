@@ -1,17 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Plus, X } from "lucide-react-native";
+import { Plus, X, Check } from "lucide-react-native";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { NeoBottomSheet } from "../ui/NeoBottomSheet";
-import { NeoButton } from "../ui/NeoButton";
+import { TagBadge, getTagColor } from "../ui/TagBadge";
 
 interface TagManagerSheetProps {
   visible: boolean;
@@ -31,140 +32,380 @@ export function TagManagerSheet({
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
-  const [tagInput, setTagInput] = useState("");
+  const items = useSimpanInStore((state) => state.items);
 
-  const handleAdd = () => {
-    const clean = tagInput.trim().toLowerCase().replace(/^#/, "");
+  // Two stages matching SimpanIn.pdf Page 35 ("list") and Page 37 ("create")
+  const [stage, setStage] = useState<"list" | "create">("list");
+  const [newTagInput, setNewTagInput] = useState("");
+
+  // Reusable tags across all items in the store
+  const reusableTags = useMemo(() => {
+    const all = new Set<string>();
+    items.forEach((it) => {
+      (it.tags || []).forEach((t) => {
+        const clean = t.trim().toLowerCase().replace(/^#+/, "");
+        if (clean) all.add(clean);
+      });
+    });
+    return Array.from(all);
+  }, [items]);
+
+  const handleCreateSubmit = () => {
+    const clean = newTagInput.trim().toLowerCase().replace(/^#+/, "");
     if (clean) {
-      Haptics.selectionAsync();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onAddTag(clean);
-      setTagInput("");
+      setNewTagInput("");
+      setStage("list");
+      onClose();
     }
   };
 
+  const handleToggleReusableTag = (tag: string) => {
+    Haptics.selectionAsync();
+    const isAttached = tags.some(
+      (t) => t.toLowerCase().replace(/^#+/, "") === tag.toLowerCase()
+    );
+    if (isAttached) {
+      onRemoveTag(tag);
+    } else {
+      onAddTag(tag);
+    }
+  };
+
+  const handleClose = () => {
+    setStage("list");
+    setNewTagInput("");
+    onClose();
+  };
+
+  const isInputFilled = newTagInput.trim().length > 0;
+
   return (
-    <NeoBottomSheet visible={visible} title="Kelola Tagar" onClose={onClose}>
-      <View style={styles.container}>
-        <View
-          style={[
-            styles.inputRow,
-            {
-              backgroundColor: theme.cardSecondary,
-              borderColor: isDark ? "#4A4640" : "#000000",
-            },
-          ]}
-        >
+    <NeoBottomSheet
+      visible={visible}
+      title={stage === "create" ? "Buat tag baru" : "Tambah tag"}
+      onClose={handleClose}
+    >
+      {stage === "list" ? (
+        // Stage 1: "Tambah tag" (SimpanIn.pdf Page 35)
+        <View style={styles.container}>
+          {/* Option: + Buat tag baru */}
+          <TouchableOpacity
+            style={styles.createOptionRow}
+            onPress={() => {
+              Haptics.selectionAsync();
+              setStage("create");
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.plusIconBox,
+                {
+                  backgroundColor: isDark ? theme.cardSecondary : "#F2EFE9",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Plus size={16} color={theme.text} strokeWidth={2.8} />
+            </View>
+            <Text style={[styles.createOptionText, { color: theme.text }]}>
+              Buat tag baru
+            </Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View
+            style={[
+              styles.divider,
+              { backgroundColor: isDark ? "#3A3630" : "#E5E0D8" },
+            ]}
+          />
+
+          {/* Reusable tags section */}
+          <View style={styles.reusableSection}>
+            {reusableTags.length === 0 ? (
+              <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+                Belum ada tag yang bisa dipakai ulang.
+              </Text>
+            ) : (
+              <ScrollView
+                style={styles.reusableScroll}
+                contentContainerStyle={styles.reusableGrid}
+                showsVerticalScrollIndicator={false}
+              >
+                {reusableTags.map((tag, idx) => {
+                  const tagColor = getTagColor(tag, idx);
+                  const isAttached = tags.some(
+                    (t) => t.toLowerCase().replace(/^#+/, "") === tag.toLowerCase()
+                  );
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[
+                        styles.reusableTagItem,
+                        {
+                          backgroundColor: isAttached
+                            ? tagColor
+                            : isDark
+                            ? theme.cardSecondary
+                            : "#FFFFFF",
+                          borderColor: isAttached
+                            ? "#000000"
+                            : isDark
+                            ? "#4A4640"
+                            : "#000000",
+                        },
+                      ]}
+                      onPress={() => handleToggleReusableTag(tag)}
+                      activeOpacity={0.8}
+                    >
+                      {!isAttached && (
+                        <View
+                          style={[
+                            styles.tagColorDot,
+                            { backgroundColor: tagColor },
+                          ]}
+                        />
+                      )}
+                      <Text
+                        style={[
+                          styles.reusableTagText,
+                          {
+                            color: isAttached ? "#000000" : theme.text,
+                            fontWeight: isAttached ? "800" : "600",
+                          },
+                        ]}
+                      >
+                        #{tag}
+                      </Text>
+                      {isAttached && (
+                        <View style={styles.checkCircle}>
+                          <Check size={11} color="#000000" strokeWidth={3} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      ) : (
+        // Stage 2: "Buat tag baru" (SimpanIn.pdf Page 37)
+        <View style={styles.container}>
+          <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+            NAMA TAG
+          </Text>
+
           <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Tambah tagar baru..."
-            placeholderTextColor={theme.textSecondary}
-            value={tagInput}
-            onChangeText={setTagInput}
-            onSubmitEditing={handleAdd}
+            style={[
+              styles.createInput,
+              {
+                backgroundColor: isDark ? theme.cardSecondary : "#FFFFFF",
+                color: theme.text,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+            placeholder="mis. inspirasi desain"
+            placeholderTextColor={theme.textMuted}
+            value={newTagInput}
+            onChangeText={setNewTagInput}
+            onSubmitEditing={handleCreateSubmit}
             returnKeyType="done"
             autoFocus
           />
-          <TouchableOpacity style={styles.addBtn} onPress={handleAdd}>
-            <Plus size={18} color="#FFFFFF" strokeWidth={3} />
-          </TouchableOpacity>
-        </View>
 
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          Tagar Saat Ini ({tags.length})
-        </Text>
+          {/* Action Buttons: [ Batal ] and [ Buat tag ] */}
+          <View style={styles.createActionRow}>
+            <TouchableOpacity
+              style={[
+                styles.batalBtn,
+                {
+                  backgroundColor: isDark ? theme.cardSecondary : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setNewTagInput("");
+                setStage("list");
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.batalBtnText, { color: theme.text }]}>
+                Batal
+              </Text>
+            </TouchableOpacity>
 
-        <View style={styles.tagsList}>
-          {tags.length === 0 ? (
-            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Belum ada tagar pada simpanan ini.
-            </Text>
-          ) : (
-            tags.map((t) => (
-              <TouchableOpacity
-                key={t}
+            <TouchableOpacity
+              style={[
+                styles.buatBtn,
+                isInputFilled
+                  ? styles.buatBtnActive
+                  : [
+                      styles.buatBtnDisabled,
+                      { backgroundColor: isDark ? "#33312E" : "#E2E0D8" },
+                    ],
+              ]}
+              onPress={handleCreateSubmit}
+              disabled={!isInputFilled}
+              activeOpacity={0.85}
+            >
+              <Text
                 style={[
-                  styles.tagChip,
+                  styles.buatBtnText,
                   {
-                    backgroundColor: theme.cardSecondary,
-                    borderColor: isDark ? "#4A4640" : "#000000",
+                    color: isInputFilled
+                      ? "#000000"
+                      : isDark
+                      ? "#66635E"
+                      : "#99958F",
                   },
                 ]}
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  onRemoveTag(t);
-                }}
               >
-                <Text style={[styles.tagText, { color: theme.text }]}>#{t}</Text>
-                <X size={13} color={theme.textSecondary} strokeWidth={2.5} />
-              </TouchableOpacity>
-            ))
-          )}
+                Buat tag
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <NeoButton variant="primary" size="lg" onPress={onClose} style={styles.doneBtn}>
-          Selesai
-        </NeoButton>
-      </View>
+      )}
     </NeoBottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
-  inputRow: {
+  createOptionRow: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 12,
-    borderWidth: 2,
-    paddingHorizontal: 12,
-    marginBottom: 16,
+    paddingVertical: 12,
   },
-  input: {
-    flex: 1,
-    height: 44,
-    fontSize: 14,
-  },
-  addBtn: {
-    backgroundColor: "#000000",
+  plusIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 8,
+  createOptionText: {
+    fontSize: 16,
+    fontWeight: "700",
   },
-  tagsList: {
+  divider: {
+    height: 1,
+    marginVertical: 14,
+  },
+  reusableSection: {
+    minHeight: 80,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  reusableScroll: {
+    maxHeight: 220,
+  },
+  reusableGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    minHeight: 50,
-    marginBottom: 20,
+    paddingVertical: 4,
   },
-  emptyText: {
-    fontSize: 13,
-    fontStyle: "italic",
-  },
-  tagChip: {
+  reusableTagItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  tagColorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     borderWidth: 1.5,
-    gap: 6,
+    borderColor: "#000000",
+    marginRight: 6,
   },
-  tagText: {
+  reusableTagText: {
     fontSize: 13,
-    fontWeight: "700",
   },
-  doneBtn: {
-    marginTop: 8,
+  checkCircle: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#F7CB54",
+    borderWidth: 1,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 6,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  createInput: {
+    height: 48,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 20,
+  },
+  createActionRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  batalBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  batalBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  buatBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  buatBtnActive: {
+    backgroundColor: "#F7CB54",
+    borderColor: "#000000",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  buatBtnDisabled: {
+    borderColor: "transparent",
+  },
+  buatBtnText: {
+    fontSize: 14,
+    fontWeight: "800",
   },
 });
-

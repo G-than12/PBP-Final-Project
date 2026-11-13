@@ -4,6 +4,7 @@ import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Collection, SavedItem, SortOption, AppSettings } from "../types/models";
 import { FOLDER_COLORS } from "../constants/theme";
+import { preserveFormattingDescription } from "../utils/metadataParser";
 
 const ssrSafeStorage: StateStorage = {
   getItem: async (name) => {
@@ -71,6 +72,7 @@ interface SimpanInStoreState {
     tags?: string[];
     notes?: string;
     image?: string;
+    author?: string;
   }) => SavedItem;
   updateLink: (id: string, updates: Partial<SavedItem>) => void;
   deleteLink: (id: string) => void;
@@ -195,13 +197,14 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         tags = [],
         notes = "",
         image,
+        author,
       }) => {
         const fallbackCol = get().collections[0]?.id || SYSTEM_COLLECTION.id;
         const newLink: SavedItem = {
           id: generateId("link"),
           url: url.trim(),
           title: title.trim() || url.trim(),
-          description: description.trim(),
+          description: preserveFormattingDescription(description.trim()),
           source: source.trim() || "Web",
           collectionId: collectionId || fallbackCol,
           isPinned,
@@ -210,14 +213,19 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           notes: notes.trim(),
           createdAt: Date.now(),
           image,
+          author: author?.trim(),
         };
         set((state) => ({ items: [newLink, ...state.items] }));
         return newLink;
       },
 
       updateLink: (id, updates) => {
+        const cleanUpdates = { ...updates };
+        if (cleanUpdates.description !== undefined) {
+          cleanUpdates.description = preserveFormattingDescription(cleanUpdates.description);
+        }
         set((state) => ({
-          items: state.items.map((i) => (i.id === id ? { ...i, ...updates } : i)),
+          items: state.items.map((i) => (i.id === id ? { ...i, ...cleanUpdates } : i)),
         }));
       },
 
@@ -333,42 +341,63 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         const demoItems: SavedItem[] = [
           {
             id: "item_demo_1",
-            url: "https://www.tiktok.com/@chef_culinary/video/73918237912",
-            title: "15 Resep Pasta Creamy & Cepat Saji untuk Makan Malam",
-            description: "Resep pasta mudah hanya 15 menit dengan saus keju dan bawang putih.",
+            url: "https://vt.tiktok.com/ZSpAvdyTJ",
+            title: "Recommended hotel Semarang arah/wilayah Pemuda ada Hotel Louis Kienne Pemuda salah satu hotel yang lokasinya sangat strategis, dekat Bandara...",
+            description: "Recommended hotel Semarang arah/wilayah Pemuda ada Hotel Louis Kienne Pemuda salah satu hotel yang lokasinya sangat strategis, dekat Bandara dan pusat kota Semarang.\n\nFasilitas lengkap:\n- Rooftop infinity pool dengan pemandangan kota\n- Gym modern & sauna\n- Sarapan prasmanan lezat\n\n#semarang #hotelsemarang #rekomendasihotel #liburan",
             source: "TikTok",
-            collectionId: "col_resep",
+            author: "Alippp | Hotel & Wisata",
+            collectionId: "col_liburan",
             isPinned: true,
             isReviewed: false,
-            tags: ["resep", "pasta", "cepat", "kuliner"],
-            notes: "Beli keju parmesan dan heavy cream sebelum masak akhir pekan.",
-            createdAt: Date.now() - 3600000 * 4,
+            tags: ["liburan", "semarang", "hotel", "wisata"],
+            notes: "Lokasi di Jalan Pemuda, dekat Simpang Lima dan Paragon Mall.",
+            createdAt: Date.now() - 3600000 * 2,
+            image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800",
           },
           {
             id: "item_demo_2",
+            url: "https://vt.tiktok.com/ZSpAvdyTK",
+            title: "Rekomendasi 15 Wisata Populer di Semarang yang Wajib Dikunjungi",
+            description: "Daftar 15 tempat wisata terbaik di Semarang:\n1. Lawang Sewu\n2. Kota Lama Semarang\n3. Sam Poo Kong\n4. Umbul Sidomukti\n5. Dusun Semilir\n\nTips perjalanan:\n- Berkunjung saat sore hari untuk pencahayaan terbaik\n- Beli lumpia basah khas Semarang di dekat lokasi",
+            source: "TikTok",
+            author: "Alippp | Hotel & Wisata",
+            collectionId: "col_liburan",
+            isPinned: false,
+            isReviewed: false,
+            tags: ["liburan", "wisata", "semarang"],
+            notes: "Rencana trip akhir tahun bareng teman.",
+            createdAt: Date.now() - 3600000 * 4,
+            image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f07?w=800",
+          },
+          {
+            id: "item_demo_3",
             url: "https://id.pinterest.com/pin/japandi-living-room-inspo/",
             title: "Inspirasi Dekorasi Ruang Tamu Minimalis Gaya Japandi",
-            description: "Konsep perpaduan minimalis Jepang dan Skandinavia dengan kayu natural.",
+            description: "Konsep perpaduan minimalis Jepang dan Skandinavia dengan kayu natural, pencahayaan alami, dan furnitur fungsional.",
             source: "Pinterest",
+            author: "Studio Desain",
             collectionId: "col_rumah",
             isPinned: true,
             isReviewed: true,
             tags: ["interior", "japandi", "dekorasi", "minimalis"],
             notes: "Warna dinding rekomendasi: Warm White atau Cream.",
             createdAt: Date.now() - 3600000 * 24,
+            image: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=800",
           },
           {
-            id: "item_demo_3",
+            id: "item_demo_4",
             url: "https://www.instagram.com/reel/kyoto_travel_guide/",
             title: "Itinerary 5 Hari Keliling Kyoto & Hidden Gems Murah",
-            description: "Panduan lengkap keliling Arashiyama, kuil tersembunyi, dan kuliner matcha.",
+            description: "Panduan lengkap keliling Arashiyama, kuil tersembunyi, dan kuliner matcha authentic.",
             source: "Instagram",
+            author: "Traveler ID",
             collectionId: "col_liburan",
             isPinned: false,
-            isReviewed: false,
+            isReviewed: true,
             tags: ["jepang", "kyoto", "travel", "itinerary"],
             notes: "Gunakan Kansai Thru Pass untuk transportasi hemat.",
             createdAt: Date.now() - 3600000 * 48,
+            image: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800",
           },
           {
             id: "item_demo_4",

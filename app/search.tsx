@@ -11,12 +11,23 @@ import {
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { Search, X, ChevronRight, Pin } from "lucide-react-native";
+import { Search, X, ChevronRight, ChevronLeft, Pin, Folder, Bookmark, Tag, Clock } from "lucide-react-native";
+import * as Linking from "expo-linking";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
+import { Alert } from "react-native";
 import { useSimpanInStore } from "../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../src/constants/theme";
 import { AppIcon } from "../src/components/ui/AppIcon";
 import { FigmaItemCard } from "../src/components/ui/FigmaItemCard";
 import { ManilaFolderCard } from "../src/components/ui/ManilaFolderCard";
+import { TagBadge } from "../src/components/ui/TagBadge";
+import { FolderQuickActionModal, FolderActionTarget } from "../src/components/ui/FolderQuickActionModal";
+import { ItemQuickActionModal, ItemActionTarget } from "../src/components/ui/ItemQuickActionModal";
+import { ShareCollectionSheet } from "../src/components/sheets/ShareCollectionSheet";
+import { CollectionFormSheet } from "../src/components/sheets/CollectionFormSheet";
+import { NeoConfirmModal } from "../src/components/ui/NeoConfirmModal";
+import { Collection, SavedItem } from "../src/types/models";
 import { safeBack } from "../src/utils/navigation";
 
 type TabType = "Ringkasan" | "Koleksi" | "Simpanan" | "Disematkan" | "Tag";
@@ -32,9 +43,46 @@ export default function SearchScreen() {
 
   const items = useSimpanInStore((state) => state.items);
   const collections = useSimpanInStore((state) => state.collections);
+  const updateCollection = useSimpanInStore((state) => state.updateCollection);
+  const deleteCollection = useSimpanInStore((state) => state.deleteCollection);
+  const togglePin = useSimpanInStore((state) => state.togglePin);
+  const deleteLink = useSimpanInStore((state) => state.deleteLink);
 
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("Ringkasan");
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+
+  // Folder Quick Action Modal states on folder long-press
+  const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
+  const [targetEditingCol, setTargetEditingCol] = useState<Collection | null>(null);
+  const [targetSharingCol, setTargetSharingCol] = useState<Collection | null>(null);
+  const [targetDeletingCol, setTargetDeletingCol] = useState<Collection | null>(null);
+
+  // Item Quick Action Modal states on item long-press
+  const [itemActionTarget, setItemActionTarget] = useState<ItemActionTarget | null>(null);
+  const [deletingItem, setDeletingItem] = useState<SavedItem | null>(null);
+
+  const handleOpenLink = async (item: SavedItem) => {
+    try {
+      await Linking.openURL(item.url);
+    } catch {
+      Alert.alert("Error", "Tidak dapat membuka tautan.");
+    }
+  };
+
+  const handleShareItem = async (item: SavedItem) => {
+    try {
+      if (Platform.OS !== "web" && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(item.url);
+      } else {
+        await Clipboard.setStringAsync(item.url);
+        Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+      }
+    } catch {
+      await Clipboard.setStringAsync(item.url);
+      Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+    }
+  };
 
   const filteredItems = useMemo(() => {
     if (!query.trim()) return items;
@@ -67,8 +115,17 @@ export default function SearchScreen() {
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   }, [items, filteredItems, query]);
 
+  const filteredItemsForSelectedTag = useMemo(() => {
+    if (!selectedTagFilter) return [];
+    const cleanFilter = selectedTagFilter.toLowerCase().replace(/^#+/, "");
+    return items.filter((item) =>
+      item.tags.some((t) => t.toLowerCase().replace(/^#+/, "") === cleanFilter)
+    );
+  }, [items, selectedTagFilter]);
+
   const handleTabPress = (tab: CategoryTab) => {
     Haptics.selectionAsync();
+    setSelectedTagFilter(null);
     // If the user clicks the currently active tab again, return to Ringkasan
     if (activeTab === tab) {
       setActiveTab("Ringkasan");
@@ -79,6 +136,7 @@ export default function SearchScreen() {
 
   const handleReturnToRingkasan = () => {
     Haptics.selectionAsync();
+    setSelectedTagFilter(null);
     setActiveTab("Ringkasan");
   };
 
@@ -134,76 +192,107 @@ export default function SearchScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Figma Pustakamu Library Card */}
-        <View
-          style={[
-            styles.libraryCard,
-            {
-              backgroundColor: isDark ? "#2A261C" : "#F7CB54",
-              borderColor: isDark ? "#4A4640" : "#000000",
-            },
-          ]}
-        >
+        {/* Figma Pustakamu Signature Yellow Hero Card (SimpanIn.pdf Page 54, 58, 59) */}
+        <View style={styles.libraryCard}>
           <View style={styles.libraryCardTop}>
-            <View>
-              <Text style={styles.libraryLabel}>PUSTAKAMU</Text>
-              <Text style={[styles.libraryStats, { color: isDark ? "#FFFFFF" : "#000000" }]}>
-                {collections.length} koleksi · {items.length} simpanan
-              </Text>
-            </View>
+            <Text style={styles.libraryLabel}>
+              PUSTAKAMU
+            </Text>
 
-            {/* Revisi logic: Tombol "Ringkasan" HANYA MUNCUL ketika memilih tab Koleksi / Simpanan / Disematkan / Tag */}
+            {/* Tombol "Ringkasan" muncul ketika memilih tab Koleksi / Simpanan / Disematkan / Tag */}
             {activeTab !== "Ringkasan" && (
               <TouchableOpacity
-                style={[
-                  styles.summaryBtn,
-                  {
-                    backgroundColor: isDark ? "#1C1A17" : "#000000",
-                    borderColor: isDark ? "#4A4640" : "#000000",
-                  },
-                ]}
+                style={styles.summaryBtn}
                 onPress={handleReturnToRingkasan}
                 accessibilityLabel="Kembali ke Ringkasan"
+                activeOpacity={0.8}
               >
-                <Text style={styles.summaryBtnText}>Ringkasan ↗</Text>
+                <Text style={styles.summaryBtnText}>
+                  Ringkasan ↗
+                </Text>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* 4 Category Tabs in a 100% responsive 4-column row */}
-          <View style={styles.tabsRow}>
-            {CATEGORY_TABS.map((tab) => {
-              const isActive = activeTab === tab;
-              return (
-                <TouchableOpacity
-                  key={tab}
-                  style={[
-                    styles.tabButton,
-                    isActive && styles.tabButtonActive,
-                    {
-                      backgroundColor: isActive
-                        ? "#000000"
-                        : isDark
-                        ? "#1C1A17"
-                        : "#FFFFFF",
-                      borderColor: isDark ? "#4A4640" : "#000000",
-                    },
-                  ]}
-                  onPress={() => handleTabPress(tab)}
-                >
-                  <Text
-                    style={[
-                      styles.tabText,
-                      isActive && styles.tabTextActive,
-                      { color: isActive ? "#FFFFFF" : isDark ? "#E5E1D8" : "#000000" },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {tab}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          {/* 4 Stat Columns (SimpanIn.pdf Page 54, 58, 59) */}
+          <View style={styles.statsGridRow}>
+            {/* Column 1: Koleksi */}
+            <TouchableOpacity
+              style={[
+                styles.statCol,
+                activeTab === "Koleksi" && styles.statColActive,
+              ]}
+              onPress={() => handleTabPress("Koleksi")}
+              activeOpacity={0.75}
+            >
+              <Folder size={20} color="#000000" strokeWidth={2.2} />
+              <Text style={styles.statNumber}>
+                {collections.length}
+              </Text>
+              <Text style={styles.statLabel}>
+                Koleksi
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.statDivider} />
+
+            {/* Column 2: Simpanan */}
+            <TouchableOpacity
+              style={[
+                styles.statCol,
+                activeTab === "Simpanan" && styles.statColActive,
+              ]}
+              onPress={() => handleTabPress("Simpanan")}
+              activeOpacity={0.75}
+            >
+              <Bookmark size={20} color="#000000" strokeWidth={2.2} />
+              <Text style={styles.statNumber}>
+                {items.length}
+              </Text>
+              <Text style={styles.statLabel}>
+                Simpanan
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.statDivider} />
+
+            {/* Column 3: Disematkan */}
+            <TouchableOpacity
+              style={[
+                styles.statCol,
+                activeTab === "Disematkan" && styles.statColActive,
+              ]}
+              onPress={() => handleTabPress("Disematkan")}
+              activeOpacity={0.75}
+            >
+              <Pin size={20} color="#000000" strokeWidth={2.2} />
+              <Text style={styles.statNumber}>
+                {pinnedItems.length}
+              </Text>
+              <Text style={styles.statLabel}>
+                Disematkan
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.statDivider} />
+
+            {/* Column 4: Tag */}
+            <TouchableOpacity
+              style={[
+                styles.statCol,
+                activeTab === "Tag" && styles.statColActive,
+              ]}
+              onPress={() => handleTabPress("Tag")}
+              activeOpacity={0.75}
+            >
+              <Tag size={20} color="#000000" strokeWidth={2.2} />
+              <Text style={styles.statNumber}>
+                {allTags.length}
+              </Text>
+              <Text style={styles.statLabel}>
+                Tag
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -211,9 +300,12 @@ export default function SearchScreen() {
         {activeTab === "Ringkasan" && (
           <View>
             {/* Baru Disimpan section */}
-            <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
-              BARU DISIMPAN
-            </Text>
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Clock size={16} color={isDark ? "#F7CB54" : "#000000"} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                BARU DISIMPAN
+              </Text>
+            </View>
 
             {items.length > 0 ? (
               <ScrollView
@@ -294,6 +386,12 @@ export default function SearchScreen() {
                           <FigmaItemCard
                             item={item}
                             onPress={() => router.push(`/link/${item.id}`)}
+                            onLongPress={(rect) => {
+                              setItemActionTarget({
+                                item,
+                                rect,
+                              });
+                            }}
                           />
                         </View>
                       ))}
@@ -319,11 +417,25 @@ export default function SearchScreen() {
         {/* Tab Content: Koleksi */}
         {activeTab === "Koleksi" && (
           <View>
-            <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
-              SEMUA KOLEKSI ({filteredCollections.length})
-            </Text>
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Folder size={16} color={isDark ? "#8FC9FF" : "#000000"} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                SEMUA KOLEKSI ({filteredCollections.length})
+              </Text>
+            </View>
             {filteredCollections.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View style={[styles.emptyIconCircle, { backgroundColor: "#8FC9FF" }]}>
+                  <Folder size={22} color="#000000" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   Tidak ada koleksi ditemukan
                 </Text>
@@ -343,6 +455,13 @@ export default function SearchScreen() {
                         collection={col}
                         itemCount={count}
                         onPress={() => router.push(`/collection/${col.id}`)}
+                        onLongPress={(rect) => {
+                          setActionTarget({
+                            collection: col,
+                            itemCount: count,
+                            rect,
+                          });
+                        }}
                       />
                     </View>
                   );
@@ -355,11 +474,25 @@ export default function SearchScreen() {
         {/* Tab Content: Simpanan */}
         {activeTab === "Simpanan" && (
           <View>
-            <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
-              SEMUA SIMPANAN ({filteredItems.length})
-            </Text>
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Bookmark size={16} color={isDark ? "#A6E3D1" : "#000000"} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                SEMUA SIMPANAN ({filteredItems.length})
+              </Text>
+            </View>
             {filteredItems.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View style={[styles.emptyIconCircle, { backgroundColor: "#A6E3D1" }]}>
+                  <Bookmark size={22} color="#000000" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   Tidak ada simpanan ditemukan
                 </Text>
@@ -376,6 +509,12 @@ export default function SearchScreen() {
                     <FigmaItemCard
                       item={item}
                       onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
                     />
                   </View>
                 ))}
@@ -387,11 +526,25 @@ export default function SearchScreen() {
         {/* Tab Content: Disematkan */}
         {activeTab === "Disematkan" && (
           <View>
-            <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
-              SIMPANAN DISEMATKAN ({pinnedItems.length})
-            </Text>
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Pin size={16} color={isDark ? "#F7CB54" : "#000000"} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                SIMPANAN DISEMATKAN ({pinnedItems.length})
+              </Text>
+            </View>
             {pinnedItems.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View style={[styles.emptyIconCircle, { backgroundColor: "#F7CB54" }]}>
+                  <Pin size={22} color="#000000" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   Belum ada simpanan disematkan
                 </Text>
@@ -408,6 +561,12 @@ export default function SearchScreen() {
                     <FigmaItemCard
                       item={item}
                       onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
                     />
                   </View>
                 ))}
@@ -416,14 +575,29 @@ export default function SearchScreen() {
           </View>
         )}
 
-        {/* Tab Content: Tag */}
-        {activeTab === "Tag" && (
+        {/* Tab Content: Tag (SimpanIn.pdf Page 59) */}
+        {activeTab === "Tag" && !selectedTagFilter && (
           <View>
-            <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
-              TAG POPULER ({allTags.length})
-            </Text>
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Tag size={16} color={isDark ? "#D07BBF" : "#000000"} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                TAG ({allTags.length})
+              </Text>
+            </View>
+
             {allTags.length === 0 ? (
-              <View style={styles.emptyCard}>
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: isDark ? theme.card : "#FFFFFF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View style={[styles.emptyIconCircle, { backgroundColor: "#D07BBF" }]}>
+                  <Tag size={22} color="#000000" strokeWidth={2.5} />
+                </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   Belum ada tagar
                 </Text>
@@ -433,33 +607,177 @@ export default function SearchScreen() {
               </View>
             ) : (
               <View style={styles.tagGrid}>
-                {allTags.map(([tag, count]) => (
-                  <TouchableOpacity
+                {allTags.map(([tag, count], idx) => (
+                  <TagBadge
                     key={tag}
-                    style={[
-                      styles.tagPill,
-                      {
-                        backgroundColor: theme.surface,
-                        borderColor: isDark ? "#4A4640" : "#000000",
-                      },
-                    ]}
+                    name={tag}
+                    count={count}
+                    index={idx}
                     onPress={() => {
                       Haptics.selectionAsync();
-                      setQuery(tag);
-                      setActiveTab("Ringkasan");
+                      setSelectedTagFilter(tag);
                     }}
-                  >
-                    <Text style={[styles.tagName, { color: theme.text }]}>#{tag}</Text>
-                    <View style={styles.tagCountBadge}>
-                      <Text style={styles.tagCountText}>{count}</Text>
-                    </View>
-                  </TouchableOpacity>
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Tab Content: Tag Filtered View (SimpanIn.pdf Page 60) */}
+        {activeTab === "Tag" && selectedTagFilter && (
+          <View>
+            {/* Header: [ < ] Square Back Button + Active TagBadge */}
+            <View style={styles.tagFilterHeaderRow}>
+              <TouchableOpacity
+                style={[
+                  styles.tagBackSquareBtn,
+                  {
+                    backgroundColor: isDark ? theme.cardSecondary : "#FFFFFF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSelectedTagFilter(null);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Kembali ke semua tag"
+                activeOpacity={0.8}
+              >
+                <ChevronLeft size={22} color={theme.text} strokeWidth={2.8} />
+              </TouchableOpacity>
+
+              <TagBadge
+                name={selectedTagFilter}
+                count={filteredItemsForSelectedTag.length}
+              />
+            </View>
+
+            {/* Section: 🔖 SIMPANAN */}
+            <View style={styles.sectionHeaderRowWithIcon}>
+              <Bookmark size={15} color={theme.text} strokeWidth={2.5} />
+              <Text style={[styles.sectionEyebrowWithIcon, { color: theme.text }]}>
+                SIMPANAN ({filteredItemsForSelectedTag.length})
+              </Text>
+            </View>
+
+            {filteredItemsForSelectedTag.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>
+                  Tidak ada simpanan
+                </Text>
+                <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
+                  Tidak ada simpanan dengan tagar ini.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.itemGrid}>
+                {filteredItemsForSelectedTag.map((item) => (
+                  <View key={item.id} style={styles.gridHalf}>
+                    <FigmaItemCard
+                      item={item}
+                      onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
+                    />
+                  </View>
                 ))}
               </View>
             )}
           </View>
         )}
       </ScrollView>
+
+      {/* Folder Quick Action Modal on Long Press */}
+      <FolderQuickActionModal
+        visible={!!actionTarget}
+        target={actionTarget}
+        onClose={() => setActionTarget(null)}
+        onEdit={(col) => setTargetEditingCol(col)}
+        onShare={(col) => setTargetSharingCol(col)}
+        onDelete={(col) => setTargetDeletingCol(col)}
+        onOpen={(col) => router.push(`/collection/${col.id}`)}
+      />
+
+      {/* Share Collection Sheet */}
+      {targetSharingCol && (
+        <ShareCollectionSheet
+          visible={!!targetSharingCol}
+          collection={targetSharingCol}
+          items={items}
+          subcollections={collections.filter((c) => c.parentId === targetSharingCol.id)}
+          onClose={() => setTargetSharingCol(null)}
+        />
+      )}
+
+      {/* Edit Collection Sheet */}
+      {targetEditingCol && (
+        <CollectionFormSheet
+          visible={!!targetEditingCol}
+          editingCollection={targetEditingCol}
+          existingCollections={collections}
+          onClose={() => setTargetEditingCol(null)}
+          onSave={(data) => {
+            updateCollection(targetEditingCol.id, data);
+            setTargetEditingCol(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {targetDeletingCol && (
+        <NeoConfirmModal
+          visible={!!targetDeletingCol}
+          title={`Hapus "${targetDeletingCol.name}"?`}
+          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (targetDeletingCol) {
+              deleteCollection(targetDeletingCol.id);
+              setTargetDeletingCol(null);
+            }
+          }}
+          onCancel={() => setTargetDeletingCol(null)}
+        />
+      )}
+
+      {/* Item Quick Action Modal on Long Press */}
+      <ItemQuickActionModal
+        visible={!!itemActionTarget}
+        target={itemActionTarget}
+        onClose={() => setItemActionTarget(null)}
+        onOpenLink={handleOpenLink}
+        onTogglePin={(it) => togglePin(it.id)}
+        onShare={handleShareItem}
+        onDelete={(it) => setDeletingItem(it)}
+        onOpenDetail={(it) => router.push(`/link/${it.id}`)}
+      />
+
+      {/* Delete Item Confirmation Modal */}
+      {deletingItem && (
+        <NeoConfirmModal
+          visible={!!deletingItem}
+          title={`Hapus Simpanan?`}
+          message={`Apakah Anda yakin ingin menghapus "${deletingItem.title}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (deletingItem) {
+              deleteLink(deletingItem.id);
+              setDeletingItem(null);
+            }
+          }}
+          onCancel={() => setDeletingItem(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -469,22 +787,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchTop: {
+    height: 68,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 10,
     borderBottomWidth: 2,
-    gap: 10,
+    gap: 12,
   },
   inputContainer: {
     flex: 1,
-    height: 46,
+    height: 42,
     borderWidth: 2,
     borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    gap: 8,
+    paddingHorizontal: 12,
+    gap: 10,
     shadowColor: "#000000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 1,
@@ -510,30 +828,35 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    height: 42,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 6,
   },
   cancelBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "800",
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 60,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 130,
   },
   libraryCard: {
+    backgroundColor: "#F7CB54",
     borderWidth: 2,
-    borderRadius: 8,
+    borderColor: "#000000",
+    borderRadius: 10,
     padding: 14,
     shadowColor: "#000000",
     shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 0,
-    elevation: 3,
-    marginBottom: 20,
+    elevation: 4,
+    marginBottom: 22,
   },
   libraryCardTop: {
     flexDirection: "row",
@@ -542,67 +865,106 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   libraryLabel: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: "900",
     letterSpacing: 0.8,
-    color: "#4A4640",
-  },
-  libraryStats: {
-    fontSize: 15,
-    fontWeight: "900",
-    marginTop: 2,
+    color: "#000000",
   },
   summaryBtn: {
-    paddingHorizontal: 10,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1.5,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#000000",
     shadowColor: "#000000",
-    shadowOffset: { width: 1, height: 1 },
+    shadowOffset: { width: 1.5, height: 1.5 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 2,
   },
   summaryBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "900",
-    color: "#FFFFFF",
+    color: "#000000",
   },
-  tabsRow: {
+  statsGridRow: {
     flexDirection: "row",
-    gap: 6,
-    marginTop: 6,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  tabButton: {
+  statCol: {
     flex: 1,
-    borderWidth: 2,
-    borderRadius: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 2,
     alignItems: "center",
     justifyContent: "center",
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  statColActive: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#000000",
     shadowColor: "#000000",
-    shadowOffset: { width: 1, height: 1 },
+    shadowOffset: { width: 1.5, height: 1.5 },
     shadowOpacity: 1,
     shadowRadius: 0,
-    elevation: 1,
+    elevation: 2,
   },
-  tabButtonActive: {
-    shadowOffset: { width: 2, height: 2 },
+  statDivider: {
+    width: 1,
+    height: 42,
+    backgroundColor: "rgba(0, 0, 0, 0.18)",
   },
-  tabText: {
+  statNumber: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#000000",
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  statLabel: {
     fontSize: 11,
     fontWeight: "800",
+    color: "#000000",
   },
-  tabTextActive: {
-    color: "#FFFFFF",
+  sectionHeaderRowWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+    marginTop: 6,
+  },
+  sectionEyebrowWithIcon: {
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+  },
+  tagFilterHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  tagBackSquareBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   sectionEyebrow: {
     fontSize: 11,
     fontWeight: "900",
     letterSpacing: 0.8,
-    marginBottom: 12,
-    marginTop: 4,
+    marginBottom: 8,
+    marginTop: 6,
   },
   horizontalScroll: {
     flexDirection: "row",
@@ -665,8 +1027,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   gridHalf: {
-    width: "48%",
-    marginBottom: 4,
+    width: "47.5%",
+    marginBottom: 18,
   },
   tagGrid: {
     flexDirection: "row",
@@ -706,22 +1068,41 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
-    borderStyle: "dashed",
-    borderColor: "#A8A29E",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
     marginBottom: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 3,
+  },
+  emptyIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   emptyTitle: {
-    fontSize: 14,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "900",
     marginBottom: 4,
   },
   emptySubtitle: {
     fontSize: 12,
+    lineHeight: 18,
     textAlign: "center",
   },
 });

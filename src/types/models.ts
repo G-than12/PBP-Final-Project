@@ -21,6 +21,7 @@ export interface SavedItem {
   notes: string;
   createdAt: number;
   image?: string;
+  author?: string;
 }
 
 export type SortOption = "newest" | "oldest" | "title" | "unreviewed";

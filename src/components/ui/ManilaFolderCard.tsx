@@ -6,6 +6,13 @@ import { AppIcon } from "./AppIcon";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 
+export interface FolderLayoutRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface ManilaFolderCardProps {
   collection: Collection;
   itemCount: number;
@@ -13,6 +20,7 @@ interface ManilaFolderCardProps {
   freshCount?: number;
   isMain?: boolean;
   onPress: () => void;
+  onLongPress?: (rect: FolderLayoutRect) => void;
 }
 
 export function ManilaFolderCard({
@@ -22,7 +30,9 @@ export function ManilaFolderCard({
   freshCount = 0,
   isMain = false,
   onPress,
+  onLongPress,
 }: ManilaFolderCardProps) {
+  const cardRef = React.useRef<any>(null);
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
@@ -31,20 +41,42 @@ export function ManilaFolderCard({
     onPress();
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (onLongPress) {
+      if (cardRef.current && (cardRef.current as any).measureInWindow) {
+        (cardRef.current as any).measureInWindow(
+          (x: number, y: number, width: number, height: number) => {
+            if (width > 0 && height > 0) {
+              onLongPress({ x, y, width, height });
+            } else {
+              onLongPress({ x: 0, y: 0, width: 0, height: 0 });
+            }
+          }
+        );
+      } else {
+        onLongPress({ x: 0, y: 0, width: 0, height: 0 });
+      }
+    }
+  };
+
   const folderColor = collection.color || "#F7CB54";
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.folderCard,
-        {
-          backgroundColor: isDark ? "#242220" : "#FFFFFF",
-          borderColor: isDark ? "#4A4640" : "#000000",
-        },
-        pressed ? styles.pressedOffset : styles.hardShadow,
-      ]}
-    >
+    <View ref={cardRef} collapsable={false}>
+      <Pressable
+        onPress={handlePress}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+        delayLongPress={300}
+        style={({ pressed }) => [
+          styles.folderCard,
+          {
+            backgroundColor: isDark ? "#242220" : "#FFFFFF",
+            borderColor: isDark ? "#4A4640" : "#000000",
+          },
+          pressed ? styles.pressedOffset : styles.hardShadow,
+        ]}
+      >
       {/* Folder Tab on top left */}
       <View
         style={[
@@ -113,13 +145,15 @@ export function ManilaFolderCard({
         </Text>
       </View>
     </Pressable>
-  );
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
   folderCard: {
     minHeight: 164,
     borderWidth: 2,
+    marginTop: 12,
     paddingTop: 54,
     paddingHorizontal: 12,
     paddingBottom: 14,
@@ -129,10 +163,10 @@ const styles = StyleSheet.create({
   },
   hardShadow: {
     shadowColor: "#000000",
-    shadowOffset: { width: 4, height: 4 },
+    shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 0,
-    elevation: 4,
+    elevation: 3,
   },
   pressedOffset: {
     transform: [{ translateX: 2 }, { translateY: 2 }],

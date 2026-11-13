@@ -23,11 +23,18 @@ import {
   Layers,
   FolderPlus,
 } from "lucide-react-native";
+import * as Linking from "expo-linking";
+import * as Sharing from "expo-sharing";
+import * as Clipboard from "expo-clipboard";
+import { Platform } from "react-native";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
+import { Collection, SavedItem } from "../../src/types/models";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { AppIcon } from "../../src/components/ui/AppIcon";
 import { FigmaItemCard } from "../../src/components/ui/FigmaItemCard";
 import { ManilaFolderCard } from "../../src/components/ui/ManilaFolderCard";
+import { FolderQuickActionModal, FolderActionTarget } from "../../src/components/ui/FolderQuickActionModal";
+import { ItemQuickActionModal, ItemActionTarget } from "../../src/components/ui/ItemQuickActionModal";
 import { NeoBottomSheet } from "../../src/components/ui/NeoBottomSheet";
 import { NeoConfirmModal } from "../../src/components/ui/NeoConfirmModal";
 import { SaveLinkSheet } from "../../src/components/sheets/SaveLinkSheet";
@@ -50,6 +57,8 @@ export default function CollectionScreen() {
   const updateCollection = useSimpanInStore((state) => state.updateCollection);
   const addCollection = useSimpanInStore((state) => state.addCollection);
   const addLink = useSimpanInStore((state) => state.addLink);
+  const togglePin = useSimpanInStore((state) => state.togglePin);
+  const deleteLink = useSimpanInStore((state) => state.deleteLink);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "unreviewed" | "pinned">("all");
@@ -60,6 +69,38 @@ export default function CollectionScreen() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Folder Quick Action Modal for subcollections
+  const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
+  const [targetEditingCol, setTargetEditingCol] = useState<Collection | null>(null);
+  const [targetSharingCol, setTargetSharingCol] = useState<Collection | null>(null);
+  const [targetDeletingCol, setTargetDeletingCol] = useState<Collection | null>(null);
+
+  // Item Quick Action Modal on post long-press
+  const [itemActionTarget, setItemActionTarget] = useState<ItemActionTarget | null>(null);
+  const [deletingItem, setDeletingItem] = useState<SavedItem | null>(null);
+
+  const handleOpenLink = async (item: SavedItem) => {
+    try {
+      await Linking.openURL(item.url);
+    } catch {
+      Alert.alert("Error", "Tidak dapat membuka tautan.");
+    }
+  };
+
+  const handleShareItem = async (item: SavedItem) => {
+    try {
+      if (Platform.OS !== "web" && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(item.url);
+      } else {
+        await Clipboard.setStringAsync(item.url);
+        Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+      }
+    } catch {
+      await Clipboard.setStringAsync(item.url);
+      Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+    }
+  };
 
   const currentCollection = useMemo(() => {
     return collections.find((c) => c.id === id) || collections[0];
@@ -256,6 +297,13 @@ export default function CollectionScreen() {
                       collection={sub}
                       itemCount={subItemCount}
                       onPress={() => router.push(`/collection/${sub.id}`)}
+                      onLongPress={(rect) => {
+                        setActionTarget({
+                          collection: sub,
+                          itemCount: subItemCount,
+                          rect,
+                        });
+                      }}
                     />
                   </View>
                 );
@@ -353,6 +401,12 @@ export default function CollectionScreen() {
                 <FigmaItemCard
                   item={item}
                   onPress={() => router.push(`/link/${item.id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item,
+                      rect,
+                    });
+                  }}
                 />
               </View>
             ))}
@@ -540,6 +594,92 @@ export default function CollectionScreen() {
         onConfirm={handleDelete}
         onCancel={() => setShowDeleteConfirm(false)}
       />
+
+      {/* Subcollection Quick Action Modal on Long Press */}
+      <FolderQuickActionModal
+        visible={!!actionTarget}
+        target={actionTarget}
+        onClose={() => setActionTarget(null)}
+        onEdit={(col) => setTargetEditingCol(col)}
+        onShare={(col) => setTargetSharingCol(col)}
+        onDelete={(col) => setTargetDeletingCol(col)}
+        onOpen={(col) => router.push(`/collection/${col.id}`)}
+      />
+
+      {/* Share Subcollection Sheet */}
+      {targetSharingCol && (
+        <ShareCollectionSheet
+          visible={!!targetSharingCol}
+          collection={targetSharingCol}
+          items={items}
+          subcollections={collections.filter((c) => c.parentId === targetSharingCol.id)}
+          onClose={() => setTargetSharingCol(null)}
+        />
+      )}
+
+      {/* Edit Subcollection Sheet */}
+      {targetEditingCol && (
+        <CollectionFormSheet
+          visible={!!targetEditingCol}
+          editingCollection={targetEditingCol}
+          existingCollections={collections}
+          onClose={() => setTargetEditingCol(null)}
+          onSave={(data) => {
+            updateCollection(targetEditingCol.id, data);
+            setTargetEditingCol(null);
+          }}
+        />
+      )}
+
+      {/* Delete Subcollection Confirmation Modal */}
+      {targetDeletingCol && (
+        <NeoConfirmModal
+          visible={!!targetDeletingCol}
+          title={`Hapus "${targetDeletingCol.name}"?`}
+          message="Subkoleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (targetDeletingCol) {
+              deleteCollection(targetDeletingCol.id);
+              setTargetDeletingCol(null);
+            }
+          }}
+          onCancel={() => setTargetDeletingCol(null)}
+        />
+      )}
+
+      {/* Item Quick Action Modal on Long Press */}
+      <ItemQuickActionModal
+        visible={!!itemActionTarget}
+        target={itemActionTarget}
+        onClose={() => setItemActionTarget(null)}
+        onOpenLink={handleOpenLink}
+        onTogglePin={(it) => togglePin(it.id)}
+        onShare={handleShareItem}
+        onDelete={(it) => setDeletingItem(it)}
+        onOpenDetail={(it) => router.push(`/link/${it.id}`)}
+      />
+
+      {/* Delete Item Confirmation Modal */}
+      {deletingItem && (
+        <NeoConfirmModal
+          visible={!!deletingItem}
+          title={`Hapus Simpanan?`}
+          message={`Apakah Anda yakin ingin menghapus "${deletingItem.title}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (deletingItem) {
+              deleteLink(deletingItem.id);
+              setDeletingItem(null);
+            }
+          }}
+          onCancel={() => setDeletingItem(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -571,6 +711,7 @@ const styles = StyleSheet.create({
   },
   headerInfoCol: {
     flex: 1,
+    paddingRight: 6,
   },
   headerTitle: {
     fontSize: 16,
@@ -583,12 +724,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   focusBtn: {
-    height: 36,
+    height: 38,
     borderWidth: 2,
     borderColor: "#000000",
     borderRadius: 6,
     backgroundColor: "#F7CB54",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000000",
@@ -598,17 +739,17 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   focusBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "900",
     color: "#000000",
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 96,
+    paddingBottom: 110,
   },
   collectionBanner: {
-    height: 92,
+    height: 90,
     borderWidth: 2,
     borderRadius: 8,
     padding: 14,
@@ -616,10 +757,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     shadowColor: "#000000",
-    shadowOffset: { width: 4, height: 4 },
+    shadowOffset: { width: 3, height: 3 },
     shadowOpacity: 1,
     shadowRadius: 0,
-    elevation: 4,
+    elevation: 3,
     marginBottom: 16,
   },
   bannerIconSquare: {
@@ -674,13 +815,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   subSection: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   subHead: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   addSubBtn: {
     flexDirection: "row",
@@ -703,13 +844,13 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 18,
     flexWrap: "wrap",
   },
   filterPill: {
     borderWidth: 2,
     borderRadius: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     backgroundColor: "transparent",
   },
@@ -735,8 +876,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   gridHalf: {
-    width: "48%",
-    marginBottom: 12,
+    width: "47.5%",
+    marginBottom: 18,
   },
   emptyStateBox: {
     alignItems: "center",

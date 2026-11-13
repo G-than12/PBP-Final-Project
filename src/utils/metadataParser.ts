@@ -19,6 +19,7 @@ export interface FetchedLinkMetadata extends ParsedMetadata {
   normalizedUrl: string;
   title: string;
   description: string;
+  author?: string;
   image?: string;
   fetchedFromRemote: boolean;
   notice?: string;
@@ -185,12 +186,14 @@ export function decodeHtmlEntities(input: string): string {
   return input
     .replace(/&#(\d+);/g, (_, dec) => {
       const code = Number(dec);
+      if (code === 10 || code === 13) return "\n";
       return Number.isFinite(code) && code > 0 && code <= 0x10ffff
         ? String.fromCodePoint(code)
         : _;
     })
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
       const code = parseInt(hex, 16);
+      if (code === 10 || code === 13) return "\n";
       return Number.isFinite(code) && code > 0 && code <= 0x10ffff
         ? String.fromCodePoint(code)
         : _;
@@ -207,8 +210,227 @@ export function decodeHtmlEntities(input: string): string {
     .replace(/&bull;/gi, "•");
 }
 
-function stripTagsAndCollapse(text: string): string {
+export function stripTagsAndCollapse(text: string): string {
   return decodeHtmlEntities(text).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Strips raw social media platform wrappers such as Instagram's engagement metadata:
+ * e.g. "90 likes, 5 comments - username pada November 12, 2026: \"Caption...\"."
+ * or "1,200 likes, 40 comments - username: \"Caption...\""
+ * or "username on Instagram: \"Caption...\""
+ */
+export function stripSocialPlatformWrappers(text: string): { cleaned: string; author?: string } {
+  if (!text) return { cleaned: "" };
+  let s = text.trim();
+  let author: string | undefined;
+
+  // Pattern 1: `90 likes, 5 comments - username on/pada date: "Caption..."`
+  // Matches both Indonesian & English headers
+  const engagementMatch = s.match(
+    /^[\d.,KMkm]+\s*(?:likes?|suka)(?:\s*,\s*[\d.,KMkm]+\s*(?:comments?|komentar))?\s*-\s*([a-zA-Z0-9._]+)(?:\s+(?:on|pada|pada tanggal)\s+[^:]+?)?:\s*["“]?([\s\S]*)$/i
+  );
+
+  if (engagementMatch) {
+    author = engagementMatch[1].trim();
+    s = engagementMatch[2] || "";
+  } else {
+    // Pattern 2: `username on Instagram: "Caption..."` or `username di Instagram: "Caption..."`
+    const creatorOnIg = s.match(
+      /^([a-zA-Z0-9._]+)\s+(?:on|di)\s+Instagram:\s*["“]?([\s\S]*)$/i
+    );
+    if (creatorOnIg) {
+      author = creatorOnIg[1].trim();
+      s = creatorOnIg[2] || "";
+    }
+  }
+
+  // Strip trailing quotation marks and trailing punctuation like `".`, `."`, `"`, `”`
+  s = s.replace(/["”']\s*\.?\s*$/, "").trim();
+
+  // Strip leading quotation marks if still present
+  s = s.replace(/^["“']\s*/, "").trim();
+
+  return { cleaned: s, author };
+}
+
+/**
+ * Intelligently restores paragraph and line breaks for captions where social media platforms
+ * (like Instagram meta tags or web scrapers) have squashed all newlines into single spaces.
+ */
+export function restorePostFormatting(rawText: string): string {
+  if (!rawText) return "";
+  let text = rawText.trim();
+
+  // If text already has 3 or more newlines, it likely already preserves original formatting
+  const newlineCount = (text.match(/\n/g) || []).length;
+  if (newlineCount >= 3) {
+    return text;
+  }
+
+  // 1. Separate trailing hashtags into their own paragraph block at the end
+  text = text.replace(
+    /([^\n])(\s+#[a-zA-Z0-9_\u0080-\uffff]+(?:\s+#[a-zA-Z0-9_\u0080-\uffff]+)*\s*$)/g,
+    "$1\n\n$2"
+  );
+
+  // 2. Break into new paragraphs before prominent section-starting emojis when preceded by punctuation (. ! ?)
+  // e.g. "Battle! 🏆 Catat" -> "Battle!\n\n🏆 Catat"
+  text = text.replace(
+    /([.!?])\s+([⚡🏆🎁🚀📌💡🎬🎟🍕🏨✈️📸⚠️🚨✨🔥👉🔔✅❌ℹ️📢🎯💎🌟💰📱💻🎓🙌🤝]\s*)/gu,
+    "$1\n\n$2"
+  );
+
+  // 3. Line breaks before schedule & location detail emojis (🗓, ⏰, 📍, 🎟, ☎️, 📧, 🔗)
+  // e.g. "ketinggalan! 🗓 Jumat..." -> "ketinggalan!\n🗓 Jumat..."
+  // e.g. "2026 ⏰ 19.00..." -> "2026\n⏰ 19.00..."
+  // e.g. "WIB 📍 Live..." -> "WIB\n📍 Live..."
+  text = text.replace(
+    /([^\n])\s+([🗓⏰📍🎟☎️📧🔗]\s*)/gu,
+    "$1\n$2"
+  );
+
+  // 3b. Paragraph breaks before prominent benefit/gift emojis followed by capital letter
+  // e.g. "@geminiacademyhacktiv8 🎁 Ada..." -> "@geminiacademyhacktiv8\n\n🎁 Ada..."
+  text = text.replace(
+    /([^\n])\s+([🎁🏆⚡📌💡]\s+[A-Z])/gu,
+    "$1\n\n$2"
+  );
+
+  // 4. Hook question break: "kamu? 👀 ⚡️" -> "kamu? 👀\n\n⚡️"
+  text = text.replace(
+    /(\?\s*[\p{Extended_Pictographic}]*)\s+([⚡🏆🎁🚀📌💡🎬✨🔥👉])/gu,
+    "$1\n\n$2"
+  );
+
+  // 5. Break before questions or CTAs like "Siap buktiin...", "Yuk...", "Daftar sekarang..."
+  text = text.replace(
+    /(!)\s+(Siap\b|Yuk\b|Jangan\b|Catat\b|Daftar\b|Klik\b|Cek\b|Info\b)/gi,
+    "$1\n\n$2"
+  );
+
+  // 6. Break before registration links: "Daftar sekarang di bit.ly..."
+  text = text.replace(
+    /([^\n])\s+(Daftar sekarang di\b|Link pendaftaran:\b|Registrasi di\b)/gi,
+    "$1\n$2"
+  );
+
+  // 7. Break after registration URLs with emoji: "bit.ly/gapbnov 🚀 Build AI..." -> "bit.ly/gapbnov 🚀\n\nBuild AI..."
+  text = text.replace(
+    /(https?:\/\/[^\s]+|bit\.ly\/[^\s]+)(\s*[\p{Extended_Pictographic}]*)\s+([A-Z])/gu,
+    "$1$2\n\n$3"
+  );
+
+  // 8. Numbered lists: "1. ", "2. ", etc.
+  text = text.replace(/([^\n])\s+(\d+[\.\)]\s+)/g, "$1\n$2");
+
+  // 9. Clean up multiple spaces and excessive newlines (max 2 consecutive newlines)
+  text = text
+    .split("\n")
+    .map((l) => l.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+
+  return text.trim();
+}
+
+/**
+ * Preserves the original formatting of descriptions (line breaks, paragraphs, bullet points, spacing)
+ * as seen in the original social media post, while stripping HTML tags and decoding entities.
+ */
+export function preserveFormattingDescription(text: string): string {
+  if (!text) return "";
+  let result = text
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/li>/gi, "\n");
+
+  result = decodeHtmlEntities(result);
+  result = result.replace(/<[^>]+>/g, "");
+  result = result.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  // 1. Strip social media wrapper (e.g. "90 likes, 5 comments - username on date: "...")
+  const stripped = stripSocialPlatformWrappers(result);
+  result = stripped.cleaned;
+
+  // 2. Restore natural line breaks & paragraphs if platform flattened them into one continuous block
+  result = restorePostFormatting(result);
+
+  // 3. Trim trailing spaces per line, keep non-empty newlines
+  const lines = result.split("\n").map((line) => line.replace(/[ \t]+/g, " ").trim());
+  result = lines.join("\n");
+  // Limit to at most 2 consecutive empty lines
+  result = result.replace(/\n{3,}/g, "\n\n");
+  return result.trim();
+}
+
+/**
+ * Extracts hashtags from caption text.
+ */
+export function extractHashtags(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/#([a-zA-Z0-9_\u0080-\uffff]+)/g);
+  if (!matches) return [];
+  const tags = matches
+    .map((m) => m.slice(1).toLowerCase().trim())
+    .filter((t) => t.length >= 2 && !/^\d+$/.test(t));
+  return Array.from(new Set(tags)).slice(0, 6);
+}
+
+/**
+ * Accurately separates Title and Description:
+ * - Title: Concise headline/hook (without trailing hashtags, ~70 chars max, cleanly cut).
+ * - Description: Full post content with original formatting, line breaks, and emojis preserved.
+ */
+export function extractSmartTitleAndDescription(
+  rawCaption: string,
+  author?: string,
+  platform?: SupportedPlatform
+): { title: string; description: string; tags: string[] } {
+  const fullDesc = preserveFormattingDescription(rawCaption);
+  const tags = extractHashtags(rawCaption);
+
+  if (!fullDesc) {
+    return {
+      title: author ? `Postingan dari ${author}` : "Simpanan Baru",
+      description: "",
+      tags,
+    };
+  }
+
+  // Get the first non-empty line as candidate for title
+  const lines = fullDesc.split("\n").map((l) => l.trim()).filter(Boolean);
+  const firstLine = lines[0] || "";
+
+  // Strip trailing hashtags from first line so title remains clean
+  const cleanFirstLine = firstLine
+    .replace(/(\s*#[a-zA-Z0-9_\u0080-\uffff]+)+$/g, "")
+    .trim();
+
+  let title = cleanFirstLine || firstLine || (author ? `Postingan dari ${author}` : "Simpanan Baru");
+
+  // If candidate is too long, cut gracefully at sentence punctuation or word boundary
+  if (title.length > 75) {
+    const sentenceMatch = title.match(/^(.{20,75}?[.!?])(?:\s|$)/);
+    if (sentenceMatch) {
+      title = sentenceMatch[1].trim();
+    } else {
+      const cut = title.slice(0, 72);
+      const lastSpace = cut.lastIndexOf(" ");
+      if (lastSpace > 25) {
+        title = cut.slice(0, lastSpace).trim() + "...";
+      } else {
+        title = cut.trim() + "...";
+      }
+    }
+  }
+
+  return {
+    title,
+    description: fullDesc,
+    tags,
+  };
 }
 
 export function isGenericBlockedTitle(title?: string | null): boolean {
@@ -239,7 +461,7 @@ export function resolveImageUrl(
 export function extractHtmlMetadata(
   html: string,
   baseUrl: string
-): { title?: string; description?: string; image?: string } {
+): { title?: string; description?: string; image?: string; author?: string } {
   if (!html) return {};
 
   const metaTags = html.match(/<meta\b[^>]*>/gi) || [];
@@ -255,17 +477,52 @@ export function extractHtmlMetadata(
     }
   }
 
-  const rawTitle =
+  let rawTitle =
     metaMap.get("og:title") ||
     metaMap.get("twitter:title") ||
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ||
     "";
 
-  const rawDesc =
+  let rawDesc =
     metaMap.get("og:description") ||
     metaMap.get("twitter:description") ||
     metaMap.get("description") ||
     "";
+
+  let rawAuthor =
+    metaMap.get("author") ||
+    metaMap.get("article:author") ||
+    metaMap.get("twitter:creator") ||
+    "";
+
+  // Check schema.org JSON-LD (Instagram, news, blogs, articles)
+  const ldJsonMatches = html.match(
+    /<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+  if (ldJsonMatches) {
+    for (const match of ldJsonMatches) {
+      const scriptContent = match.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i)?.[1];
+      if (scriptContent) {
+        try {
+          const json = JSON.parse(scriptContent);
+          const candidates = Array.isArray(json) ? json : [json];
+          for (const item of candidates) {
+            if (item?.articleBody && typeof item.articleBody === "string") {
+              rawDesc = item.articleBody;
+            }
+            if (item?.headline && typeof item.headline === "string" && !rawTitle) {
+              rawTitle = item.headline;
+            }
+            if (item?.author?.name && typeof item.author.name === "string" && !rawAuthor) {
+              rawAuthor = item.author.name;
+            }
+          }
+        } catch {
+          // ignore JSON parse error
+        }
+      }
+    }
+  }
 
   let rawImage =
     metaMap.get("og:image:secure_url") ||
@@ -283,59 +540,69 @@ export function extractHtmlMetadata(
   }
 
   const title = stripTagsAndCollapse(rawTitle);
-  const description = stripTagsAndCollapse(rawDesc);
+  const description = preserveFormattingDescription(rawDesc);
   const image = resolveImageUrl(rawImage, baseUrl);
+  const author = rawAuthor ? stripTagsAndCollapse(rawAuthor) : undefined;
 
   return {
     title: !isGenericBlockedTitle(title) ? title : undefined,
     description: description || undefined,
     image,
+    author,
   };
 }
 
 export function cleanPlatformMetadata(
   platform: SupportedPlatform,
-  raw: { title?: string; description?: string; image?: string }
-): { title?: string; description?: string; image?: string } {
+  raw: { title?: string; description?: string; image?: string; author?: string; tags?: string[] }
+): { title?: string; description?: string; image?: string; author?: string; tags?: string[] } {
   let title = raw.title?.trim();
-  let description = raw.description?.trim();
+  let description = raw.description ? preserveFormattingDescription(raw.description) : undefined;
   const image = raw.image?.trim();
+  let author = raw.author?.trim();
+  let tags = raw.tags ? [...raw.tags] : [];
 
   if (platform === "Instagram") {
-    // Format example: `Creator on Instagram: "Caption here..."`
-    if (title) {
-      const igQuoteMatch = title.match(/^(.+?)\s+on Instagram:\s*["“]([\s\S]+)["”]$/i);
-      if (igQuoteMatch) {
-        const author = igQuoteMatch[1].trim();
-        const caption = igQuoteMatch[2].trim();
-        const firstLine = caption.split(/\r?\n/)[0]?.trim() || caption;
-        title =
-          firstLine.length > 90
-            ? `${firstLine.slice(0, 87)}...`
-            : firstLine || `${author} di Instagram`;
-        if (!description || description.length < caption.length) {
-          description = `${author}: ${caption}`;
-        }
+    // 1. Process description (strip Instagram engagement wrapper & format)
+    if (description) {
+      const stripped = stripSocialPlatformWrappers(description);
+      if (stripped.author && !author) {
+        author = stripped.author;
+      }
+      const smart = extractSmartTitleAndDescription(stripped.cleaned, author, "Instagram");
+      description = smart.description;
+      if (!title || isGenericBlockedTitle(title) || title === "Instagram Reel / Post") {
+        title = smart.title;
+      }
+      if (smart.tags.length > 0) {
+        tags = Array.from(new Set([...tags, ...smart.tags]));
       }
     }
 
-    // Description example: `1,234 likes, 12 comments - username on Jan 1, 2026: "Caption..."`
-    if (description) {
-      const descQuoteMatch = description.match(
-        /^\d[\d.,KMkm]*\s+likes?,\s+\d[\d.,KMkm]*\s+comments?\s+-\s+([^:]+):\s*["“]([\s\S]+)["”]$/i
-      );
-      if (descQuoteMatch) {
-        const metaAuthor = descQuoteMatch[1].trim();
-        const caption = descQuoteMatch[2].trim();
-        description = caption;
-        if (!title || isGenericBlockedTitle(title) || title === "Instagram Reel / Post") {
-          const firstLine = caption.split(/\r?\n/)[0]?.trim() || caption;
-          title =
-            firstLine.length > 90
-              ? `${firstLine.slice(0, 87)}...`
-              : firstLine || metaAuthor;
+    // 2. Process title if title was contaminated with Instagram wrapper
+    if (title) {
+      const strippedTitle = stripSocialPlatformWrappers(title);
+      if (strippedTitle.author && !author) {
+        author = strippedTitle.author;
+      }
+      if (strippedTitle.cleaned !== title) {
+        const smart = extractSmartTitleAndDescription(strippedTitle.cleaned, author, "Instagram");
+        title = smart.title;
+        if (!description || description.length < smart.description.length) {
+          description = smart.description;
         }
       }
+    }
+  }
+
+  if (platform === "TikTok" && description) {
+    const smart = extractSmartTitleAndDescription(description, author, "TikTok");
+    if (!title || isGenericBlockedTitle(title) || title === "Video TikTok") {
+      title = smart.title;
+    }
+    description = smart.description;
+    if (smart.tags.length > 0) {
+      tags = Array.from(new Set([...tags, ...smart.tags]));
     }
   }
 
@@ -343,6 +610,8 @@ export function cleanPlatformMetadata(
     title: title && !isGenericBlockedTitle(title) ? title : undefined,
     description: description || undefined,
     image,
+    author,
+    tags: tags.length > 0 ? tags : undefined,
   };
 }
 
@@ -442,7 +711,14 @@ async function fetchTextWithTimeout(
 async function fetchPlatformSpecificMetadata(
   targetUrl: string,
   platform: SupportedPlatform
-): Promise<{ title?: string; description?: string; image?: string; finalUrl?: string }> {
+): Promise<{
+  title?: string;
+  description?: string;
+  image?: string;
+  author?: string;
+  tags?: string[];
+  finalUrl?: string;
+}> {
   if (platform === "YouTube") {
     const videoId = extractYouTubeVideoId(targetUrl);
     const oembed = await fetchJsonWithTimeout<{
@@ -456,6 +732,7 @@ async function fetchPlatformSpecificMetadata(
       description: oembed?.author_name
         ? `Video YouTube oleh ${oembed.author_name}`
         : undefined,
+      author: oembed?.author_name,
       image:
         oembed?.thumbnail_url ||
         (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : undefined),
@@ -478,24 +755,21 @@ async function fetchPlatformSpecificMetadata(
 
       if (fx?.tweet) {
         const text = fx.tweet.text?.trim() || "";
-        const authorLabel = fx.tweet.author?.name
+        const authorName = fx.tweet.author?.name
           ? `${fx.tweet.author.name} (@${fx.tweet.author.screen_name || parts.user})`
           : `@${parts.user}`;
-        const firstLine = text.split(/\r?\n/)[0]?.trim() || "";
-        const title = firstLine
-          ? firstLine.length > 85
-            ? `${firstLine.slice(0, 82)}...`
-            : firstLine
-          : `Postingan ${authorLabel}`;
+        const smart = extractSmartTitleAndDescription(text, authorName, "X");
         const image =
           fx.tweet.media?.photos?.[0]?.url ||
           fx.tweet.media?.videos?.[0]?.thumbnail_url ||
           fx.tweet.author?.avatar_url;
 
         return {
-          title,
-          description: text ? `${authorLabel}: ${text}` : undefined,
+          title: smart.title,
+          description: smart.description,
+          author: authorName,
           image,
+          tags: smart.tags,
         };
       }
     }
@@ -509,13 +783,17 @@ async function fetchPlatformSpecificMetadata(
     }>(`https://www.tiktok.com/oembed?url=${encodeURIComponent(targetUrl)}`);
 
     if (oembed && (oembed.title || oembed.thumbnail_url || oembed.author_name)) {
+      const smart = extractSmartTitleAndDescription(
+        oembed.title || "",
+        oembed.author_name,
+        "TikTok"
+      );
       return {
-        title: oembed.title?.trim() || (oembed.author_name ? `Video TikTok @${oembed.author_name}` : undefined),
-        description:
-          oembed.author_name && oembed.title
-            ? `Oleh ${oembed.author_name} — ${oembed.title}`
-            : oembed.title || (oembed.author_name ? `Video TikTok oleh ${oembed.author_name}` : undefined),
+        title: smart.title,
+        description: smart.description,
+        author: oembed.author_name,
         image: oembed.thumbnail_url,
+        tags: smart.tags,
       };
     }
   }
@@ -525,12 +803,13 @@ async function fetchPlatformSpecificMetadata(
 
 async function fetchMicrolinkMetadata(
   targetUrl: string
-): Promise<{ title?: string; description?: string; image?: string }> {
+): Promise<{ title?: string; description?: string; image?: string; author?: string }> {
   const json = await fetchJsonWithTimeout<{
     status?: string;
     data?: {
       title?: string;
       description?: string;
+      author?: string;
       image?: { url?: string } | null;
       logo?: { url?: string } | null;
     };
@@ -540,7 +819,8 @@ async function fetchMicrolinkMetadata(
   const title = json.data.title?.trim();
   return {
     title: title && !isGenericBlockedTitle(title) ? title : undefined,
-    description: json.data.description?.trim() || undefined,
+    description: json.data.description ? preserveFormattingDescription(json.data.description) : undefined,
+    author: json.data.author?.trim(),
     image: json.data.image?.url || json.data.logo?.url || undefined,
   };
 }
@@ -556,7 +836,9 @@ export async function extractDirectMetadata(
   platform: SupportedPlatform;
   title?: string;
   description?: string;
+  author?: string;
   image?: string;
+  tags?: string[];
 }> {
   const normalizedUrl = cleanInstagramUrlForFetch(normalizeUrl(rawUrl));
   const base = parseUrlMetadata(normalizedUrl);
@@ -586,7 +868,7 @@ export async function extractDirectMetadata(
           "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
         ];
 
-  let htmlMeta: { title?: string; description?: string; image?: string } = {};
+  let htmlMeta: { title?: string; description?: string; image?: string; author?: string } = {};
   let resolvedUrl = normalizedUrl;
 
   for (const ua of uaList) {
@@ -602,6 +884,7 @@ export async function extractDirectMetadata(
       title: htmlMeta.title || parsed.title,
       description: htmlMeta.description || parsed.description,
       image: htmlMeta.image || parsed.image,
+      author: htmlMeta.author || parsed.author,
     };
 
     // For short links (e.g. vt.tiktok.com, pin.it), retry platform oEmbed with resolved URL
@@ -614,6 +897,8 @@ export async function extractDirectMetadata(
       if (resolvedTikTok.title) platformResult.title = resolvedTikTok.title;
       if (resolvedTikTok.description) platformResult.description = resolvedTikTok.description;
       if (resolvedTikTok.image) platformResult.image = resolvedTikTok.image;
+      if (resolvedTikTok.author) platformResult.author = resolvedTikTok.author;
+      if (resolvedTikTok.tags) platformResult.tags = resolvedTikTok.tags;
     }
 
     if (htmlMeta.title && htmlMeta.image) break;
@@ -623,6 +908,8 @@ export async function extractDirectMetadata(
     title: platformResult.title || htmlMeta.title,
     description: platformResult.description || htmlMeta.description,
     image: platformResult.image || htmlMeta.image,
+    author: platformResult.author || htmlMeta.author,
+    tags: platformResult.tags,
   });
 
   if (!merged.title && !merged.image && !merged.description) {
@@ -655,7 +942,9 @@ export async function fetchUrlMetadata(rawUrl: string): Promise<FetchedLinkMetad
   let remote: {
     title?: string;
     description?: string;
+    author?: string;
     image?: string;
+    tags?: string[];
     normalizedUrl?: string;
   } = {};
 
@@ -672,7 +961,9 @@ export async function fetchUrlMetadata(rawUrl: string): Promise<FetchedLinkMetad
       const apiRes = await fetchJsonWithTimeout<{
         title?: string;
         description?: string;
+        author?: string;
         image?: string;
+        tags?: string[];
         normalizedUrl?: string;
       }>(`/api/metadata?url=${encodeURIComponent(normalizedUrl)}`, 9000);
 
@@ -681,7 +972,9 @@ export async function fetchUrlMetadata(rawUrl: string): Promise<FetchedLinkMetad
           normalizedUrl: apiRes.normalizedUrl || remote.normalizedUrl,
           title: remote.title || apiRes.title,
           description: remote.description || apiRes.description,
+          author: remote.author || apiRes.author,
           image: remote.image || apiRes.image,
+          tags: remote.tags || apiRes.tags,
         };
       }
     }
@@ -693,6 +986,7 @@ export async function fetchUrlMetadata(rawUrl: string): Promise<FetchedLinkMetad
         ...remote,
         title: remote.title || microlink.title,
         description: remote.description || microlink.description,
+        author: remote.author || microlink.author,
         image: remote.image || microlink.image,
       };
     }
@@ -715,12 +1009,18 @@ export async function fetchUrlMetadata(rawUrl: string): Promise<FetchedLinkMetad
       "Pratinjau otomatis tidak tersedia dari situs tujuan. Judul dan deskripsi bawaan digunakan.";
   }
 
+  const mergedTags = Array.from(
+    new Set([...(cleaned.tags || []), ...fallback.suggestedTags])
+  );
+
   return {
     ...fallback,
     normalizedUrl: remote.normalizedUrl || normalizedUrl,
     title: cleaned.title || fallback.inferredTitle,
     description: cleaned.description || fallback.inferredDescription,
+    author: cleaned.author,
     image: isImageUrl(cleaned.image) ? cleaned.image : undefined,
+    suggestedTags: mergedTags,
     fetchedFromRemote,
     notice,
   };
@@ -741,4 +1041,52 @@ export function formatDateRelative(timestamp: number): string {
   if (diffHour > 0) return `${diffHour} jam lalu`;
   if (diffMin > 0) return `${diffMin} menit lalu`;
   return "Baru saja";
+}
+
+/**
+ * Formats a timestamp into Indonesian date & time matching the design reference, e.g.:
+ * "09 Nov 2026, 12.08"
+ */
+export function formatItemDateTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "Mei",
+    "Jun",
+    "Jul",
+    "Agu",
+    "Sep",
+    "Okt",
+    "Nov",
+    "Des",
+  ];
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = months[date.getMonth()];
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${day} ${month} ${year}, ${hours}.${minutes}`;
+}
+
+/**
+ * Strips http/https and www for clean button URL label matching reference, e.g.:
+ * "vt.tiktok.com/ZSpAvdyTJ"
+ */
+export function formatDisplayUrl(rawUrl: string): string {
+  if (!rawUrl) return "";
+  try {
+    const clean = rawUrl
+      .trim()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "");
+    if (clean.length > 34) {
+      return clean.slice(0, 31) + "...";
+    }
+    return clean;
+  } catch {
+    return rawUrl;
+  }
 }

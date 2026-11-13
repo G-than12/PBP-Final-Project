@@ -6,33 +6,67 @@ import { SavedItem } from "../../types/models";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { LinkThumbnail } from "./LinkThumbnail";
+import { PlatformLogo } from "./PlatformLogo";
+
+export interface ItemLayoutRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 
 interface FigmaItemCardProps {
   item: SavedItem;
   onPress: () => void;
+  onLongPress?: (rect: ItemLayoutRect) => void;
 }
 
-export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
+export function FigmaItemCard({ item, onPress, onLongPress }: FigmaItemCardProps) {
+  const cardRef = React.useRef<any>(null);
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+  const collections = useSimpanInStore((state) => state.collections);
+  const collection = collections.find((c) => c.id === item.collectionId);
 
   const handlePress = () => {
     Haptics.selectionAsync();
     onPress();
   };
 
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (onLongPress) {
+      if (cardRef.current && cardRef.current.measureInWindow) {
+        cardRef.current.measureInWindow(
+          (x: number, y: number, width: number, height: number) => {
+            if (width > 0 && height > 0) {
+              onLongPress({ x, y, width, height });
+            } else {
+              onLongPress({ x: 0, y: 0, width: 0, height: 0 });
+            }
+          }
+        );
+      } else {
+        onLongPress({ x: 0, y: 0, width: 0, height: 0 });
+      }
+    }
+  };
+
   return (
-    <Pressable
-      onPress={handlePress}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: isDark ? "#242220" : "#FFFFFF",
-          borderColor: isDark ? "#4A4640" : "#000000",
-        },
-        pressed ? styles.pressedOffset : styles.hardShadow,
-      ]}
-    >
+    <View ref={cardRef} collapsable={false}>
+      <Pressable
+        onPress={handlePress}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+        delayLongPress={300}
+        style={({ pressed }) => [
+          styles.card,
+          {
+            backgroundColor: isDark ? "#242220" : "#FFFFFF",
+            borderColor: isDark ? "#4A4640" : "#000000",
+          },
+          pressed ? styles.pressedOffset : styles.hardShadow,
+        ]}
+      >
       {/* Top Visual Box */}
       <LinkThumbnail
         image={item.image}
@@ -53,13 +87,26 @@ export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
             <Pin size={12} color="#000000" fill="#000000" />
           </View>
         )}
+
+        {/* Collection Pill at bottom-left of thumbnail (SimpanIn.pdf Page 58) */}
+        {collection && (
+          <View
+            style={[
+              styles.collectionPill,
+              {
+                backgroundColor: collection.color || "#F7CB54",
+              },
+            ]}
+          >
+            <Text style={styles.collectionPillText} numberOfLines={1}>
+              {collection.name}
+            </Text>
+          </View>
+        )}
       </LinkThumbnail>
 
-      {/* Item Meta & Title */}
+      {/* Item Title & Platform Row (SimpanIn.pdf Page 58) */}
       <View style={styles.body}>
-        <Text style={[styles.sourceText, { color: theme.textMuted }]} numberOfLines={1}>
-          {item.source || "Web"}
-        </Text>
         <Text
           style={[styles.titleText, { color: theme.text }]}
           numberOfLines={2}
@@ -67,9 +114,16 @@ export function FigmaItemCard({ item, onPress }: FigmaItemCardProps) {
         >
           {item.title}
         </Text>
+        <View style={styles.platformRow}>
+          <PlatformLogo platform={item.source} size={13} />
+          <Text style={[styles.sourceText, { color: theme.textMuted }]} numberOfLines={1}>
+            {item.source || "Web"}
+          </Text>
+        </View>
       </View>
     </Pressable>
-  );
+  </View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -78,7 +132,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     padding: 8,
     position: "relative",
-    marginBottom: 12,
   },
   hardShadow: {
     shadowColor: "#000000",
@@ -130,11 +183,36 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 2,
   },
-  sourceText: {
+  collectionPill: {
+    position: "absolute",
+    bottom: 6,
+    left: 6,
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    maxWidth: "85%",
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  collectionPillText: {
     fontSize: 9,
+    fontWeight: "900",
+    color: "#000000",
+  },
+  platformRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 4,
+  },
+  sourceText: {
+    fontSize: 10,
     fontWeight: "700",
-    textTransform: "uppercase",
-    marginBottom: 3,
   },
   titleText: {
     fontSize: 12,

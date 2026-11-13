@@ -26,10 +26,17 @@ import { Collection, SavedItem, SortOption } from "../src/types/models";
 import { THEME_LIGHT, THEME_DARK } from "../src/constants/theme";
 import { extractFirstUrl, isFetchableUrl } from "../src/utils/metadataParser";
 import { SimpanInMascot } from "../src/components/ui/SimpanInMascot";
+import * as Linking from "expo-linking";
+import * as Sharing from "expo-sharing";
+import { Alert } from "react-native";
 import { ManilaFolderCard } from "../src/components/ui/ManilaFolderCard";
 import { FigmaItemCard } from "../src/components/ui/FigmaItemCard";
+import { FolderQuickActionModal, FolderActionTarget } from "../src/components/ui/FolderQuickActionModal";
+import { ItemQuickActionModal, ItemActionTarget } from "../src/components/ui/ItemQuickActionModal";
+import { NeoConfirmModal } from "../src/components/ui/NeoConfirmModal";
 import { SaveLinkSheet } from "../src/components/sheets/SaveLinkSheet";
 import { CollectionFormSheet } from "../src/components/sheets/CollectionFormSheet";
+import { ShareCollectionSheet } from "../src/components/sheets/ShareCollectionSheet";
 import { HomeTitleEditorSheet } from "../src/components/sheets/HomeTitleEditorSheet";
 
 export default function HomeScreen() {
@@ -47,12 +54,48 @@ export default function HomeScreen() {
 
   const addLink = useSimpanInStore((state) => state.addLink);
   const addCollection = useSimpanInStore((state) => state.addCollection);
+  const updateCollection = useSimpanInStore((state) => state.updateCollection);
+  const deleteCollection = useSimpanInStore((state) => state.deleteCollection);
+  const togglePin = useSimpanInStore((state) => state.togglePin);
+  const deleteLink = useSimpanInStore((state) => state.deleteLink);
 
   const [quickUrl, setQuickUrl] = useState("");
   const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [saveInitialUrl, setSaveInitialUrl] = useState("");
   const [showCollectionSheet, setShowCollectionSheet] = useState(false);
   const [showTitleEditor, setShowTitleEditor] = useState(false);
+
+  // Quick Action Modal states on folder long-press
+  const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
+  const [editingCollection, setEditingCollection] = useState<Collection | null>(null);
+  const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
+  const [deletingCollection, setDeletingCollection] = useState<Collection | null>(null);
+
+  // Quick Action Modal states on item long-press
+  const [itemActionTarget, setItemActionTarget] = useState<ItemActionTarget | null>(null);
+  const [deletingItem, setDeletingItem] = useState<SavedItem | null>(null);
+
+  const handleOpenLink = async (item: SavedItem) => {
+    try {
+      await Linking.openURL(item.url);
+    } catch {
+      Alert.alert("Error", "Tidak dapat membuka tautan.");
+    }
+  };
+
+  const handleShareItem = async (item: SavedItem) => {
+    try {
+      if (Platform.OS !== "web" && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(item.url);
+      } else {
+        await Clipboard.setStringAsync(item.url);
+        Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+      }
+    } catch {
+      await Clipboard.setStringAsync(item.url);
+      Alert.alert("Tautan Disalin", "URL berhasil disalin ke clipboard.");
+    }
+  };
 
   const unreviewedCount = useMemo(() => {
     return items.filter((i) => !i.isReviewed).length;
@@ -321,6 +364,16 @@ export default function HomeScreen() {
                     onPress={() => {
                       router.push(`/collection/${col.id}`);
                     }}
+                    onLongPress={(rect) => {
+                      setActionTarget({
+                        collection: col,
+                        itemCount: count,
+                        subcollectionCount: subcount,
+                        freshCount: fresh,
+                        isMain: index === 0 && (col.isSystem || col.id === "inbox"),
+                        rect,
+                      });
+                    }}
                   />
                 </View>
               );
@@ -346,6 +399,12 @@ export default function HomeScreen() {
                   <FigmaItemCard
                     item={item}
                     onPress={() => router.push(`/link/${item.id}`)}
+                    onLongPress={(rect) => {
+                      setItemActionTarget({
+                        item,
+                        rect,
+                      });
+                    }}
                   />
                 </View>
               ))}
@@ -373,13 +432,18 @@ export default function HomeScreen() {
         visible={showSaveSheet}
         collections={collections}
         initialUrl={saveInitialUrl}
-        onClose={() => setShowSaveSheet(false)}
+        onClose={() => {
+          setShowSaveSheet(false);
+          setSaveInitialUrl("");
+        }}
         onSave={(data) => {
           addLink(data);
           setShowSaveSheet(false);
+          setSaveInitialUrl("");
         }}
         onRequestCreateCollection={() => {
           setShowSaveSheet(false);
+          setSaveInitialUrl("");
           setShowCollectionSheet(true);
         }}
       />
@@ -402,6 +466,92 @@ export default function HomeScreen() {
         onClose={() => setShowTitleEditor(false)}
         onSave={(newTitle) => setHomeTitle(newTitle)}
       />
+
+      {/* Folder Quick Action Modal on Long Press */}
+      <FolderQuickActionModal
+        visible={!!actionTarget}
+        target={actionTarget}
+        onClose={() => setActionTarget(null)}
+        onEdit={(col) => setEditingCollection(col)}
+        onShare={(col) => setSharingCollection(col)}
+        onDelete={(col) => setDeletingCollection(col)}
+        onOpen={(col) => router.push(`/collection/${col.id}`)}
+      />
+
+      {/* Share Collection Sheet */}
+      {sharingCollection && (
+        <ShareCollectionSheet
+          visible={!!sharingCollection}
+          collection={sharingCollection}
+          items={items}
+          subcollections={collections.filter((c) => c.parentId === sharingCollection.id)}
+          onClose={() => setSharingCollection(null)}
+        />
+      )}
+
+      {/* Edit Collection Sheet */}
+      {editingCollection && (
+        <CollectionFormSheet
+          visible={!!editingCollection}
+          editingCollection={editingCollection}
+          existingCollections={collections}
+          onClose={() => setEditingCollection(null)}
+          onSave={(data) => {
+            updateCollection(editingCollection.id, data);
+            setEditingCollection(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingCollection && (
+        <NeoConfirmModal
+          visible={!!deletingCollection}
+          title={`Hapus "${deletingCollection.name}"?`}
+          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (deletingCollection) {
+              deleteCollection(deletingCollection.id);
+              setDeletingCollection(null);
+            }
+          }}
+          onCancel={() => setDeletingCollection(null)}
+        />
+      )}
+
+      {/* Item Quick Action Modal on Long Press */}
+      <ItemQuickActionModal
+        visible={!!itemActionTarget}
+        target={itemActionTarget}
+        onClose={() => setItemActionTarget(null)}
+        onOpenLink={handleOpenLink}
+        onTogglePin={(it) => togglePin(it.id)}
+        onShare={handleShareItem}
+        onDelete={(it) => setDeletingItem(it)}
+        onOpenDetail={(it) => router.push(`/link/${it.id}`)}
+      />
+
+      {/* Delete Item Confirmation Modal */}
+      {deletingItem && (
+        <NeoConfirmModal
+          visible={!!deletingItem}
+          title={`Hapus Simpanan?`}
+          message={`Apakah Anda yakin ingin menghapus "${deletingItem.title}"? Tindakan ini tidak dapat dibatalkan.`}
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          isDestructive
+          onConfirm={() => {
+            if (deletingItem) {
+              deleteLink(deletingItem.id);
+              setDeletingItem(null);
+            }
+          }}
+          onCancel={() => setDeletingItem(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -558,7 +708,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
   sectionHeading: {
     fontSize: 20,
@@ -591,8 +741,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   gridItem: {
-    width: "48%",
-    marginBottom: 16,
+    width: "47.5%",
+    marginBottom: 18,
   },
   fabBtn: {
     position: "absolute",
