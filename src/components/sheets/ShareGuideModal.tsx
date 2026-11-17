@@ -1,12 +1,11 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView } from "react-native";
-import { Share2, Smartphone, FolderCheck, Eye } from "lucide-react-native";
+import * as Haptics from "expo-haptics";
+import { Share2, Clipboard, Plus } from "lucide-react-native";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { NeoBottomSheet } from "../ui/NeoBottomSheet";
 import { NeoButton } from "../ui/NeoButton";
-import { NeoCard } from "../ui/NeoCard";
-import { SimpanInMascot } from "../ui/SimpanInMascot";
 
 interface ShareGuideModalProps {
   visible: boolean;
@@ -17,57 +16,86 @@ export function ShareGuideModal({ visible, onClose }: ShareGuideModalProps) {
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
-  const steps = [
+  const methods = [
     {
-      num: "01",
-      icon: <Share2 size={20} color="#000000" />,
-      title: "Ketuk Tombol Bagikan (Share)",
-      desc: "Saat menemukan artikel, reel, atau video di Instagram, TikTok, X, atau browser, ketuk tombol Bagikan.",
+      id: "share",
+      color: "#F7CB54",
+      icon: <Share2 size={20} color="#000000" strokeWidth={2.4} />,
+      title: "Bagikan dari Aplikasi Lain",
+      desc: "Gunakan menu Bagikan (Share) di browser atau media sosial, lalu pilih SimpanIn. Tautan akan tersimpan otomatis.",
     },
     {
-      num: "02",
-      icon: <SimpanInMascot small />,
-      title: "Pilih Aplikasi SimpanIn",
-      desc: "Cari dan pilih ikon SimpanIn pada lembar bagikan sistem ponsel Anda.",
+      id: "clipboard",
+      color: "#A6E3D1",
+      icon: <Clipboard size={20} color="#000000" strokeWidth={2.4} />,
+      title: "Salin & Buka Aplikasi",
+      desc: "Salin tautan dari mana saja. Saat SimpanIn dibuka, konfirmasi simpan akan langsung muncul di beranda.",
     },
     {
-      num: "03",
-      icon: <FolderCheck size={20} color="#000000" />,
-      title: "Pilih Koleksi & Beri Tagar",
-      desc: "Pilih koleksi tujuan (misal: Resep, Desain), sematkan jika penting, atau buat koleksi baru secara instan.",
-    },
-    {
-      num: "04",
-      icon: <Eye size={20} color="#000000" />,
-      title: "Buka & Tinjau di Mode Fokus",
-      desc: "Buka SimpanIn kapan saja untuk membaca kembali simpanan Anda tanpa gangguan iklan dan distraksi.",
+      id: "manual",
+      color: "#8FC9FF",
+      icon: <Plus size={20} color="#000000" strokeWidth={2.6} />,
+      title: "Tambah Manual",
+      desc: "Tekan tombol + di pojok kanan bawah kapan saja untuk menempel tautan dan memilih folder simpanan.",
     },
   ];
 
   return (
-    <NeoBottomSheet visible={visible} title="Panduan Menyimpan Tautan" onClose={onClose}>
+    <NeoBottomSheet visible={visible} title="Cara Simpan" onClose={onClose}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
       >
-        <Text style={[styles.introText, { color: theme.textMuted }]}>
-          Simpan konten favorit Anda dari aplikasi mana pun hanya dalam 4 langkah mudah:
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>
+          Ada tiga cara untuk menyimpan tautan ke SimpanIn:
         </Text>
 
-        {steps.map((st) => (
-          <NeoCard key={st.num} style={styles.stepCard}>
-            <View style={styles.stepHeader}>
-              <View style={styles.stepIconBox}>{st.icon}</View>
-              <Text style={styles.stepNumber}>LANGKAH {st.num}</Text>
+        <View style={styles.list}>
+          {methods.map((item) => (
+            <View
+              key={item.id}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.iconBox,
+                  {
+                    backgroundColor: item.color,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                {item.icon}
+              </View>
+              <View style={styles.textCol}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
+                  {item.title}
+                </Text>
+                <Text style={[styles.cardDesc, { color: theme.textMuted }]}>
+                  {item.desc}
+                </Text>
+              </View>
             </View>
-            <Text style={[styles.stepTitle, { color: theme.text }]}>{st.title}</Text>
-            <Text style={[styles.stepDesc, { color: theme.textMuted }]}>{st.desc}</Text>
-          </NeoCard>
-        ))}
+          ))}
+        </View>
 
-        <NeoButton variant="primary" size="lg" onPress={onClose} style={styles.closeBtn}>
-          Saya Mengerti
+        <NeoButton
+          variant="primary"
+          size="lg"
+          onPress={() => {
+            Haptics.selectionAsync();
+            onClose();
+          }}
+          style={styles.closeBtn}
+        >
+          Tutup
         </NeoButton>
       </ScrollView>
     </NeoBottomSheet>
@@ -79,49 +107,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
-  introText: {
+  subtitle: {
     fontSize: 13,
     lineHeight: 18,
+    marginBottom: 14,
+  },
+  list: {
+    gap: 10,
     marginBottom: 16,
   },
-  stepCard: {
-    marginBottom: 12,
-  },
-  stepHeader: {
+  card: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 8,
+    alignItems: "flex-start",
+    borderWidth: 2,
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
-  stepIconBox: {
-    width: 36,
-    height: 36,
+  iconBox: {
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    backgroundColor: "#F7CB54",
-    borderWidth: 1.5,
-    borderColor: "#000000",
-    justifyContent: "center",
+    borderWidth: 2,
     alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
   },
-  stepNumber: {
-    fontSize: 11,
-    fontWeight: "900",
-    color: "#E1306C",
-    letterSpacing: 0.5,
+  textCol: {
+    flex: 1,
   },
-  stepTitle: {
-    fontSize: 15,
+  cardTitle: {
+    fontSize: 14,
     fontWeight: "800",
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  stepDesc: {
-    fontSize: 13,
+  cardDesc: {
+    fontSize: 12.5,
     lineHeight: 18,
   },
   closeBtn: {
-    marginVertical: 14,
+    marginTop: 4,
   },
 });
-
