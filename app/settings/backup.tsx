@@ -125,10 +125,9 @@ export default function BackupScreen() {
               <FileJson size={28} color="#000000" strokeWidth={2.2} />
             </View>
             <View style={styles.heroTextCol}>
-              <Text style={styles.heroTitle}>Format JSON Terbuka</Text>
+              <Text style={styles.heroTitle}>Format JSON Standar</Text>
               <Text style={styles.heroSubtitle}>
-                Cadangan Anda disimpan dalam format JSON murni. Kompatibel dengan semua
-                perangkat (Web, Android, iOS) tanpa ketergantungan server berbayar.
+                Cadangan disimpan dalam format JSON. Aman dan kompatibel untuk dipindah ke perangkat mana pun.
               </Text>
             </View>
           </View>
@@ -149,10 +148,10 @@ export default function BackupScreen() {
               </View>
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Unduh Berkas Cadangan
+                  Simpan Cadangan
                 </Text>
                 <Text style={[styles.cardSubtitle, { color: theme.textMuted }]}>
-                  Mencakup semua koleksi, subkoleksi, tag, catatan, dan tautan Anda.
+                  Simpan semua koleksi, link, dan catatan ke dalam satu file.
                 </Text>
               </View>
             </View>
@@ -186,7 +185,7 @@ export default function BackupScreen() {
                   )
                 }
               >
-                {isExporting ? "Membuat Cadangan..." : "Ekspor Sekarang (JSON)"}
+                {isExporting ? "Menyiapkan File..." : "Ekspor ke File JSON"}
               </NeoButton>
             </View>
           </NeoCard>
@@ -195,7 +194,7 @@ export default function BackupScreen() {
         {/* Section Impor */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>
-            PEMULIHAN DATA
+            PULIHKAN DATA
           </Text>
 
           <NeoCard color={theme.card} style={styles.cardBox}>
@@ -207,10 +206,10 @@ export default function BackupScreen() {
               </View>
               <View style={styles.cardHeaderText}>
                 <Text style={[styles.cardTitle, { color: theme.text }]}>
-                  Impor Berkas Cadangan
+                  Pulihkan dari File
                 </Text>
                 <Text style={[styles.cardSubtitle, { color: theme.textMuted }]}>
-                  Pilih berkas .json yang sebelumnya diekspor dari aplikasi SimpanIn.
+                  Pilih file .json cadangan SimpanIn dari HP kamu.
                 </Text>
               </View>
             </View>
@@ -218,8 +217,7 @@ export default function BackupScreen() {
             <View style={[styles.infoBanner, { backgroundColor: "#E9F5FE" }]}>
               <ShieldCheck size={18} color="#0284C7" />
               <Text style={styles.infoBannerText}>
-                Impor bersifat aman (non-destructive). Data baru akan digabungkan secara
-                otomatis tanpa menghapus simpanan Anda yang sudah ada.
+                Data baru akan otomatis digabungkan tanpa menghapus link yang sudah ada.
               </Text>
             </View>
 
@@ -236,7 +234,7 @@ export default function BackupScreen() {
                   )
                 }
               >
-                {isImporting ? "Membaca Berkas..." : "Pilih Berkas JSON"}
+                {isImporting ? "Membaca File..." : "Pilih File Cadangan"}
               </NeoButton>
             </View>
           </NeoCard>
