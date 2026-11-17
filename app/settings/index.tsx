@@ -26,6 +26,8 @@ import {
   Bookmark,
   CheckCircle,
   Pin,
+  Compass,
+  Bell,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
@@ -34,6 +36,10 @@ import { SimpanInMascot } from "../../src/components/ui/SimpanInMascot";
 import { NeoConfirmModal } from "../../src/components/ui/NeoConfirmModal";
 import { HomeTitleEditorSheet } from "../../src/components/sheets/HomeTitleEditorSheet";
 import { safeBack } from "../../src/utils/navigation";
+import {
+  requestNotificationPermission,
+  cancelAllReminders,
+} from "../../src/utils/notificationManager";
 
 export default function SettingsMainScreen() {
   const router = useRouter();
@@ -44,6 +50,12 @@ export default function SettingsMainScreen() {
   const setHomeTitle = useSimpanInStore((state) => state.setHomeTitle);
   const cloudSyncEnabled = useSimpanInStore(
     (state) => state.settings.cloudSyncEnabled
+  );
+  const notificationsEnabled = useSimpanInStore(
+    (state) => state.settings.notificationsEnabled
+  );
+  const setNotificationsEnabled = useSimpanInStore(
+    (state) => state.setNotificationsEnabled
   );
   const collections = useSimpanInStore((state) => state.collections);
   const items = useSimpanInStore((state) => state.items);
@@ -65,9 +77,33 @@ export default function SettingsMainScreen() {
   const pinnedLinks = items.filter((i) => i.isPinned).length;
   const reviewedLinks = items.filter((i) => i.isReviewed).length;
 
+  const unreviewedCount = items.filter((i) => !i.isReviewed).length;
+
   const handleToggleDarkMode = (val: boolean) => {
     Haptics.selectionAsync();
     setDarkMode(val);
+  };
+
+  const handleToggleNotifications = async (val: boolean) => {
+    Haptics.selectionAsync();
+    if (val) {
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        setNotificationsEnabled(true);
+        Alert.alert(
+          "Notifikasi Diaktifkan",
+          "SimpanIn akan mengirimkan pengingat santai saat simpanan Anda menumpuk."
+        );
+      } else {
+        Alert.alert(
+          "Izin Notifikasi Dibutuhkan",
+          "Mohon izinkan notifikasi untuk SimpanIn di Pengaturan sistem ponsel Anda agar pengingat dapat muncul."
+        );
+      }
+    } else {
+      setNotificationsEnabled(false);
+      await cancelAllReminders();
+    }
   };
 
   const handleConfirmReset = () => {
@@ -125,10 +161,9 @@ export default function SettingsMainScreen() {
               <Sparkles size={22} color="#000000" strokeWidth={2.5} />
             </View>
             <View style={styles.bannerTextContainer}>
-              <Text style={styles.bannerTitle}>100% Bebas & Terbuka</Text>
+              <Text style={styles.bannerTitle}>Gratis & Tanpa Batas</Text>
               <Text style={styles.bannerSubtitle}>
-                Akses tanpa batas: Buat koleksi bertingkat, simpan tautan, dan tandai
-                tag sebanyak yang Anda inginkan tanpa batasan kuota.
+                Simpan link, buat folder bertingkat, dan nikmati semua fitur sepuasmu.
               </Text>
             </View>
           </View>
@@ -213,10 +248,10 @@ export default function SettingsMainScreen() {
               </View>
               <View style={styles.rowTextCol}>
                 <Text style={[styles.rowTitle, { color: theme.text }]}>
-                  Mode Gelap (Dark Mode)
+                  Mode Gelap
                 </Text>
                 <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
-                  {isDark ? "Tema gelap kontras aktif" : "Tema terang neobrutalist aktif"}
+                  {isDark ? "Tema gelap kontras" : "Tema terang neobrutalisme"}
                 </Text>
               </View>
             </View>
@@ -225,6 +260,42 @@ export default function SettingsMainScreen() {
               onValueChange={handleToggleDarkMode}
               trackColor={{ false: "#E5E1D8", true: "#F7CB54" }}
               thumbColor={isDark ? "#000000" : "#FFFFFF"}
+            />
+          </NeoCard>
+
+          {/* Notifications & Reminders Row */}
+          <NeoCard color={theme.card} style={styles.settingRowCard}>
+            <View style={styles.rowLeft}>
+              <View
+                style={[
+                  styles.iconBox,
+                  {
+                    backgroundColor: notificationsEnabled
+                      ? "#F7CB54"
+                      : isDark
+                      ? "#4B443B"
+                      : "#F5F0E8",
+                  },
+                ]}
+              >
+                <Bell size={20} color="#000000" />
+              </View>
+              <View style={styles.rowTextCol}>
+                <Text style={[styles.rowTitle, { color: theme.text }]}>
+                  Pengingat Simpanan
+                </Text>
+                <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
+                  {notificationsEnabled
+                    ? "Ingatkan saat simpanan menumpuk"
+                    : "Mati"}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: "#E5E1D8", true: "#F7CB54" }}
+              thumbColor={notificationsEnabled ? "#000000" : "#FFFFFF"}
             />
           </NeoCard>
 
@@ -294,8 +365,8 @@ export default function SettingsMainScreen() {
                   </Text>
                   <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
                     {cloudSyncEnabled
-                      ? "Aktif · Pencadangan terenkripsi"
-                      : "Lokal-first · Data aman di perangkat Anda"}
+                      ? "Aktif"
+                      : "Offline · Data tersimpan di HP"}
                   </Text>
                 </View>
               </View>
@@ -350,10 +421,39 @@ export default function SettingsMainScreen() {
                 </View>
                 <View style={styles.rowTextCol}>
                   <Text style={[styles.rowTitle, { color: theme.text }]}>
-                    Panduan Berbagi Link
+                    Cara Simpan Link
                   </Text>
                   <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
-                    Cara menyimpan link dari IG, TikTok, X, & Browser
+                    Panduan simpan dari Instagram, TikTok, dan web
+                  </Text>
+                </View>
+              </View>
+              <ChevronRight size={18} color={theme.textMuted} />
+            </NeoCard>
+          </TouchableOpacity>
+
+          {/* Re-run Onboarding Tour */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.selectionAsync();
+              router.push("/onboarding");
+            }}
+            style={styles.touchableCard}
+          >
+            <NeoCard color={theme.card} style={styles.settingRowCard}>
+              <View style={styles.rowLeft}>
+                <View
+                  style={[styles.iconBox, { backgroundColor: "#F7CB54" }]}
+                >
+                  <Compass size={20} color="#000000" />
+                </View>
+                <View style={styles.rowTextCol}>
+                  <Text style={[styles.rowTitle, { color: theme.text }]}>
+                    Tur Aplikasi
+                  </Text>
+                  <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
+                    Lihat kembali simulasi fitur SimpanIn
                   </Text>
                 </View>
               </View>
@@ -365,7 +465,7 @@ export default function SettingsMainScreen() {
         {/* Maintenance / Danger Zone */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>
-            ZONA PEMELIHARAAN & PENGUJIAN
+            DATA & PENGUJIAN
           </Text>
 
           {/* Load Sample Demo Data */}
@@ -384,10 +484,10 @@ export default function SettingsMainScreen() {
                 </View>
                 <View style={styles.rowTextCol}>
                   <Text style={[styles.rowTitle, { color: theme.text }]}>
-                    Muat Contoh Data Demo
+                    Muat Data Contoh
                   </Text>
                   <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
-                    Isi sampel koleksi (Resep, Rumah, Liburan) & link untuk presentasi
+                    Isi contoh koleksi & link untuk dicoba
                   </Text>
                 </View>
               </View>
@@ -413,10 +513,10 @@ export default function SettingsMainScreen() {
                 </View>
                 <View style={styles.rowTextCol}>
                   <Text style={[styles.rowTitle, { color: theme.danger }]}>
-                    Reset ke Database Bersih
+                    Hapus Semua Data
                   </Text>
                   <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
-                    Kembalikan ke kondisi awal (hanya "Belum Diurutkan")
+                    Kosongkan semua link dan koleksi
                   </Text>
                 </View>
               </View>
@@ -449,9 +549,9 @@ export default function SettingsMainScreen() {
       {/* Reset Confirmation Modal */}
       <NeoConfirmModal
         visible={showResetConfirm}
-        title="Reset Semua Data?"
-        message="Tindakan ini akan mengosongkan semua link dan koleksi kustom. Ruang kerja Anda akan dimulai fresh hanya dengan koleksi 'Belum Diurutkan'. Pastikan Anda sudah membuat cadangan data jika diperlukan."
-        confirmText="Ya, Reset Sekarang"
+        title="Hapus semua data?"
+        message="Semua link dan koleksi kustom akan dihapus permanen. Folder 'Belum Diurutkan' akan dikosongkan."
+        confirmText="Hapus Semua"
         cancelText="Batal"
         isDestructive
         onConfirm={handleConfirmReset}
@@ -461,9 +561,9 @@ export default function SettingsMainScreen() {
       {/* Demo Data Confirmation Modal */}
       <NeoConfirmModal
         visible={showDemoConfirm}
-        title="Muat Data Sampel Demo?"
-        message="Aplikasi akan memuat contoh koleksi (Resep Lezat, Inspirasi Rumah, Liburan) beserta tautan sampel TikTok, Pinterest, Instagram, dan Web untuk keperluan pengujian dan presentasi."
-        confirmText="Muat Sampel"
+        title="Muat data contoh?"
+        message="Aplikasi akan menambahkan koleksi contoh (Resep, Rumah, Liburan) beserta link sampel untuk dicoba."
+        confirmText="Muat Data"
         cancelText="Batal"
         onConfirm={handleConfirmLoadDemo}
         onCancel={() => setShowDemoConfirm(false)}
