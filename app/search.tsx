@@ -87,11 +87,17 @@ export default function SearchScreen() {
   const filteredItems = useMemo(() => {
     if (!query.trim()) return items;
     const q = query.toLowerCase();
-    return items.filter((x) =>
-      `${x.title} ${x.source} ${x.description} ${x.notes} ${x.tags.join(" ")}`
-        .toLowerCase()
-        .includes(q)
-    );
+    return items.filter((x) => {
+      const deadlineMatch =
+        Boolean(x.deadline) &&
+        (q.includes("deadline") || q.includes("tenggat") || q.includes("lomba"));
+      return (
+        deadlineMatch ||
+        `${x.title} ${x.source} ${x.description} ${x.notes} ${x.tags.join(" ")}`
+          .toLowerCase()
+          .includes(q)
+      );
+    });
   }, [items, query]);
 
   const filteredCollections = useMemo(() => {
@@ -140,6 +146,18 @@ export default function SearchScreen() {
     setActiveTab("Ringkasan");
   };
 
+  const statTabs: {
+    id: CategoryTab;
+    icon: typeof Folder;
+    count: number;
+    label: string;
+  }[] = [
+    { id: "Koleksi", icon: Folder, count: collections.length, label: "Koleksi" },
+    { id: "Simpanan", icon: Bookmark, count: items.length, label: "Simpanan" },
+    { id: "Disematkan", icon: Pin, count: pinnedItems.length, label: "Disematkan" },
+    { id: "Tag", icon: Tag, count: allTags.length, label: "Tag" },
+  ];
+
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search Top Bar matching Figma search-top */}
@@ -156,7 +174,7 @@ export default function SearchScreen() {
           <Search size={18} color={theme.textSecondary} />
           <TextInput
             style={[styles.input, { color: theme.text }]}
-            placeholder="Cari koleksi atau simpanan..."
+            placeholder="Cari koleksi atau link..."
             placeholderTextColor={theme.textSecondary}
             value={query}
             onChangeText={setQuery}
@@ -214,85 +232,50 @@ export default function SearchScreen() {
             )}
           </View>
 
-          {/* 4 Stat Columns (SimpanIn.pdf Page 54, 58, 59) */}
+          {/* 4 Stat Columns (Zero-Layout-Shift Grid) */}
           <View style={styles.statsGridRow}>
-            {/* Column 1: Koleksi */}
-            <TouchableOpacity
-              style={[
-                styles.statCol,
-                activeTab === "Koleksi" && styles.statColActive,
-              ]}
-              onPress={() => handleTabPress("Koleksi")}
-              activeOpacity={0.75}
-            >
-              <Folder size={20} color="#000000" strokeWidth={2.2} />
-              <Text style={styles.statNumber}>
-                {collections.length}
-              </Text>
-              <Text style={styles.statLabel}>
-                Koleksi
-              </Text>
-            </TouchableOpacity>
+            {statTabs.map((tab, index) => {
+              const TabIcon = tab.icon;
+              const isActive = activeTab === tab.id;
+              const isAdjacentToActive =
+                activeTab === tab.id ||
+                activeTab === statTabs[index + 1]?.id;
 
-            <View style={styles.statDivider} />
+              return (
+                <View key={tab.id} style={styles.statColWrapper}>
+                  <TouchableOpacity
+                    style={[
+                      styles.statCol,
+                      isActive && styles.statColActive,
+                    ]}
+                    onPress={() => handleTabPress(tab.id)}
+                    activeOpacity={0.75}
+                  >
+                    <TabIcon size={20} color="#000000" strokeWidth={2.2} />
+                    <Text style={styles.statNumber}>{tab.count}</Text>
+                    <Text
+                      style={styles.statLabel}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.85}
+                    >
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
 
-            {/* Column 2: Simpanan */}
-            <TouchableOpacity
-              style={[
-                styles.statCol,
-                activeTab === "Simpanan" && styles.statColActive,
-              ]}
-              onPress={() => handleTabPress("Simpanan")}
-              activeOpacity={0.75}
-            >
-              <Bookmark size={20} color="#000000" strokeWidth={2.2} />
-              <Text style={styles.statNumber}>
-                {items.length}
-              </Text>
-              <Text style={styles.statLabel}>
-                Simpanan
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.statDivider} />
-
-            {/* Column 3: Disematkan */}
-            <TouchableOpacity
-              style={[
-                styles.statCol,
-                activeTab === "Disematkan" && styles.statColActive,
-              ]}
-              onPress={() => handleTabPress("Disematkan")}
-              activeOpacity={0.75}
-            >
-              <Pin size={20} color="#000000" strokeWidth={2.2} />
-              <Text style={styles.statNumber}>
-                {pinnedItems.length}
-              </Text>
-              <Text style={styles.statLabel}>
-                Disematkan
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.statDivider} />
-
-            {/* Column 4: Tag */}
-            <TouchableOpacity
-              style={[
-                styles.statCol,
-                activeTab === "Tag" && styles.statColActive,
-              ]}
-              onPress={() => handleTabPress("Tag")}
-              activeOpacity={0.75}
-            >
-              <Tag size={20} color="#000000" strokeWidth={2.2} />
-              <Text style={styles.statNumber}>
-                {allTags.length}
-              </Text>
-              <Text style={styles.statLabel}>
-                Tag
-              </Text>
-            </TouchableOpacity>
+                  {/* Absolute divider to avoid any flex recalculation / horizontal jitter */}
+                  {index < statTabs.length - 1 && (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.statDivider,
+                        isAdjacentToActive && styles.statDividerHidden,
+                      ]}
+                    />
+                  )}
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -381,8 +364,8 @@ export default function SearchScreen() {
                       SIMPANAN TERKAIT ({filteredItems.length})
                     </Text>
                     <View style={styles.itemGrid}>
-                      {filteredItems.map((item) => (
-                        <View key={item.id} style={styles.gridHalf}>
+                      {filteredItems.map((item, index) => (
+                        <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                           <FigmaItemCard
                             item={item}
                             onPress={() => router.push(`/link/${item.id}`)}
@@ -402,10 +385,10 @@ export default function SearchScreen() {
                 {filteredCollections.length === 0 && filteredItems.length === 0 && (
                   <View style={styles.emptyCard}>
                     <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                      Tidak ada hasil yang cocok
+                      Hasil tidak ditemukan
                     </Text>
                     <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                      Coba cari dengan kata kunci lain atau periksa ejaan.
+                      Coba cari dengan kata kunci lain.
                     </Text>
                   </View>
                 )}
@@ -437,7 +420,7 @@ export default function SearchScreen() {
                   <Folder size={22} color="#000000" strokeWidth={2.5} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  Tidak ada koleksi ditemukan
+                  Koleksi tidak ditemukan
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
                   {query
@@ -494,18 +477,18 @@ export default function SearchScreen() {
                   <Bookmark size={22} color="#000000" strokeWidth={2.5} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
-                  Tidak ada simpanan ditemukan
+                  Link tidak ditemukan
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
                   {query
-                    ? `Tidak ada simpanan yang cocok dengan "${query}"`
+                    ? `Tidak ada link yang cocok dengan "${query}"`
                     : "Belum ada tautan yang disimpan."}
                 </Text>
               </View>
             ) : (
               <View style={styles.itemGrid}>
-                {filteredItems.map((item) => (
-                  <View key={item.id} style={styles.gridHalf}>
+                {filteredItems.map((item, index) => (
+                  <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                     <FigmaItemCard
                       item={item}
                       onPress={() => router.push(`/link/${item.id}`)}
@@ -556,8 +539,8 @@ export default function SearchScreen() {
               </View>
             ) : (
               <View style={styles.itemGrid}>
-                {pinnedItems.map((item) => (
-                  <View key={item.id} style={styles.gridHalf}>
+                {pinnedItems.map((item, index) => (
+                  <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                     <FigmaItemCard
                       item={item}
                       onPress={() => router.push(`/link/${item.id}`)}
@@ -673,8 +656,8 @@ export default function SearchScreen() {
               </View>
             ) : (
               <View style={styles.itemGrid}>
-                {filteredItemsForSelectedTag.map((item) => (
-                  <View key={item.id} style={styles.gridHalf}>
+                {filteredItemsForSelectedTag.map((item, index) => (
+                  <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                     <FigmaItemCard
                       item={item}
                       onPress={() => router.push(`/link/${item.id}`)}
@@ -725,6 +708,9 @@ export default function SearchScreen() {
           onSave={(data) => {
             updateCollection(targetEditingCol.id, data);
             setTargetEditingCol(null);
+            if (!data.parentId) {
+              router.push("/home");
+            }
           }}
         />
       )}
@@ -863,6 +849,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
+    minHeight: 30,
   },
   libraryLabel: {
     fontSize: 12,
@@ -890,30 +877,50 @@ const styles = StyleSheet.create({
   },
   statsGridRow: {
     flexDirection: "row",
+    alignItems: "stretch",
+    width: "100%",
+  },
+  statColWrapper: {
+    flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    position: "relative",
+    paddingHorizontal: 2,
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
   },
   statCol: {
-    flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
     borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "transparent",
+    backgroundColor: "transparent",
+    minHeight: 82,
   },
   statColActive: {
     backgroundColor: "#FFFFFF",
-    borderWidth: 2,
     borderColor: "#000000",
     shadowColor: "#000000",
     shadowOffset: { width: 1.5, height: 1.5 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 2,
+    zIndex: 2,
   },
   statDivider: {
-    width: 1,
+    position: "absolute",
+    right: -1,
+    top: 20,
     height: 42,
+    width: 1,
     backgroundColor: "rgba(0, 0, 0, 0.18)",
+    zIndex: 1,
+  },
+  statDividerHidden: {
+    opacity: 0,
   },
   statNumber: {
     fontSize: 22,
@@ -921,11 +928,13 @@ const styles = StyleSheet.create({
     color: "#000000",
     marginTop: 4,
     marginBottom: 2,
+    textAlign: "center",
   },
   statLabel: {
     fontSize: 11,
     fontWeight: "800",
     color: "#000000",
+    textAlign: "center",
   },
   sectionHeaderRowWithIcon: {
     flexDirection: "row",
