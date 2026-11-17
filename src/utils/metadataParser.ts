@@ -226,22 +226,22 @@ export function stripSocialPlatformWrappers(text: string): { cleaned: string; au
   let author: string | undefined;
 
   // Pattern 1: `90 likes, 5 comments - username on/pada date: "Caption..."`
-  // Matches both Indonesian & English headers
+  // Matches both Indonesian & English headers, allowing spaces and symbols in display names
   const engagementMatch = s.match(
-    /^[\d.,KMkm]+\s*(?:likes?|suka)(?:\s*,\s*[\d.,KMkm]+\s*(?:comments?|komentar))?\s*-\s*([a-zA-Z0-9._]+)(?:\s+(?:on|pada|pada tanggal)\s+[^:]+?)?:\s*["“]?([\s\S]*)$/i
+    /^[\d.,KMkm]+\s*(?:likes?|suka)(?:\s*,\s*[\d.,KMkm]+\s*(?:comments?|komentar))?\s*-\s*([^:]+?)(?:\s+(?:on|pada|pada tanggal)\s+[^:]+?)?:\s*["“]?([\s\S]*)$/i
   );
 
   if (engagementMatch) {
     author = engagementMatch[1].trim();
     s = engagementMatch[2] || "";
   } else {
-    // Pattern 2: `username on Instagram: "Caption..."` or `username di Instagram: "Caption..."`
-    const creatorOnIg = s.match(
-      /^([a-zA-Z0-9._]+)\s+(?:on|di)\s+Instagram:\s*["“]?([\s\S]*)$/i
+    // Pattern 2: `[Display Name] on/di [Platform]: "Caption..."`
+    const creatorOnPlatform = s.match(
+      /^([^"\n\r]+?)\s+(?:on|di)\s+(?:Instagram|Threads|TikTok|Facebook|Twitter|X):\s*["“]?([\s\S]*)$/i
     );
-    if (creatorOnIg) {
-      author = creatorOnIg[1].trim();
-      s = creatorOnIg[2] || "";
+    if (creatorOnPlatform) {
+      author = creatorOnPlatform[1].trim();
+      s = creatorOnPlatform[2] || "";
     }
   }
 
@@ -262,69 +262,89 @@ export function restorePostFormatting(rawText: string): string {
   if (!rawText) return "";
   let text = rawText.trim();
 
-  // If text already has 3 or more newlines, it likely already preserves original formatting
-  const newlineCount = (text.match(/\n/g) || []).length;
-  if (newlineCount >= 3) {
-    return text;
-  }
-
   // 1. Separate trailing hashtags into their own paragraph block at the end
   text = text.replace(
     /([^\n])(\s+#[a-zA-Z0-9_\u0080-\uffff]+(?:\s+#[a-zA-Z0-9_\u0080-\uffff]+)*\s*$)/g,
     "$1\n\n$2"
   );
 
-  // 2. Break into new paragraphs before prominent section-starting emojis when preceded by punctuation (. ! ?)
-  // e.g. "Battle! 🏆 Catat" -> "Battle!\n\n🏆 Catat"
+  // 2. Break bullet points: each bullet symbol (•, ·, ⁃, ▪, ▫, ✦, ✧, ★) onto its own line
+  text = text.replace(/([^\n])\s*([•·⁃▪▫✦✧★]\s*)/gu, "$1\n$2");
+  // Dashed bullets: "- [Word]" when preceded by text
+  text = text.replace(/([^\n])\s+(-\s+[A-Za-z0-9])/g, "$1\n$2");
+
+  // 3. Section headers that precede bullet or numbered lists
   text = text.replace(
-    /([.!?])\s+([⚡🏆🎁🚀📌💡🎬🎟🍕🏨✈️📸⚠️🚨✨🔥👉🔔✅❌ℹ️📢🎯💎🌟💰📱💻🎓🙌🤝]\s*)/gu,
-    "$1\n\n$2"
+    /([^\n])\s*(Cara\s+daftar:|Syarat\s*(?:dan\s*ketentuan)?:|Benefit\s*(?:member)?:|Ketentuan:|Timeline:|Jadwal:|Hadiah:|Kategori:|Biaya\s*(?:pendaftaran)?:|HTM:|Persyaratan:|Kualifikasi:)\s*/gi,
+    "$1\n\n$2\n"
   );
 
-  // 3. Line breaks before schedule & location detail emojis (🗓, ⏰, 📍, 🎟, ☎️, 📧, 🔗)
-  // e.g. "ketinggalan! 🗓 Jumat..." -> "ketinggalan!\n🗓 Jumat..."
-  // e.g. "2026 ⏰ 19.00..." -> "2026\n⏰ 19.00..."
-  // e.g. "WIB 📍 Live..." -> "WIB\n📍 Live..."
+  // 3b. Key info sentences starting with phrases like "Terbuka untuk umum:"
+  text = text.replace(/([.!?])\s*(Terbuka\s+untuk\s+umum:)\s*/gi, "$1\n\n$2 ");
+
+  // 4. Numbered lists: "1. ", "2. ", etc.
+  text = text.replace(/([^\n])\s+(\d+[\.\)]\s+)/g, "$1\n$2");
+
+  // 5. Schedule date emojis (break into new paragraph if after list or paragraph)
+  text = text.replace(/([^\n])\s*((?:🗓|📅)\uFE0F?\s*)/gu, "$1\n\n$2");
+
+  // 5b. Detail emojis (guidebook, location, time, link, etc.) onto their own line
   text = text.replace(
-    /([^\n])\s+([🗓⏰📍🎟☎️📧🔗]\s*)/gu,
+    /([^\n])\s*((?:⏰|📍|📖|🔗|☎|📧|📌|💡|🚀|🏆|🎁|✨|⚠️|🚨)\uFE0F?\s*)/gu,
     "$1\n$2"
   );
 
-  // 3b. Paragraph breaks before prominent benefit/gift emojis followed by capital letter
-  // e.g. "@geminiacademyhacktiv8 🎁 Ada..." -> "@geminiacademyhacktiv8\n\n🎁 Ada..."
+  // 6. Contact persons (Narahubung / CP):
+  text = text.replace(
+    /([^\n])\s*(Narahubung:|Contact\s*Person:|CP:|Info\s*lebih\s*lanjut:)\s*/gi,
+    "$1\n\n$2\n"
+  );
+  // Individual contacts: e.g. "085293841911 Indra: 082198482273" -> "085293841911\nIndra: 082198482273"
+  text = text.replace(
+    /([\d\s\-\+]{8,16})\s+([A-Za-z\s]{3,20}:\s*[\d\s\-\+]+)/g,
+    "$1\n$2"
+  );
+
+  // 7. Footnotes with asterisk: e.g. "*Merch berbayar..."
+  text = text.replace(/([^\n])\s*(\*[A-Za-z])/g, "$1\n\n$2");
+
+  // 8. Break into new paragraphs before prominent section-starting emojis when preceded by punctuation (. ! ?)
+  text = text.replace(
+    /([.!?])\s+((?:⚡|🏆|🎁|🚀|📌|💡|🎬|🎟|🍕|🏨|✈|📸|⚠️|🚨|✨|🔥|👉|🔔|✅|❌|ℹ|📢|🎯|💎|🌟|💰|📱|💻|🎓|🙌|🤝)\uFE0F?\s*)/gu,
+    "$1\n\n$2"
+  );
+
+  // 8b. Paragraph breaks before prominent benefit/gift emojis followed by capital letter
   text = text.replace(
     /([^\n])\s+([🎁🏆⚡📌💡]\s+[A-Z])/gu,
     "$1\n\n$2"
   );
 
-  // 4. Hook question break: "kamu? 👀 ⚡️" -> "kamu? 👀\n\n⚡️"
+  // 9. Hook question break: "kamu? 👀 ⚡️" -> "kamu? 👀\n\n⚡️"
   text = text.replace(
     /(\?\s*[\p{Extended_Pictographic}]*)\s+([⚡🏆🎁🚀📌💡🎬✨🔥👉])/gu,
     "$1\n\n$2"
   );
 
-  // 5. Break before questions or CTAs like "Siap buktiin...", "Yuk...", "Daftar sekarang..."
+  // 10. Break before questions or CTAs like "Siap buktiin...", "Yuk...", "Daftar sekarang..."
   text = text.replace(
     /(!)\s+(Siap\b|Yuk\b|Jangan\b|Catat\b|Daftar\b|Klik\b|Cek\b|Info\b)/gi,
     "$1\n\n$2"
   );
 
-  // 6. Break before registration links: "Daftar sekarang di bit.ly..."
+  // 11. Break before registration links: "Daftar sekarang di bit.ly..."
   text = text.replace(
     /([^\n])\s+(Daftar sekarang di\b|Link pendaftaran:\b|Registrasi di\b)/gi,
     "$1\n$2"
   );
 
-  // 7. Break after registration URLs with emoji: "bit.ly/gapbnov 🚀 Build AI..." -> "bit.ly/gapbnov 🚀\n\nBuild AI..."
+  // 12. Break after registration URLs with emoji: "bit.ly/gapbnov 🚀 Build AI..." -> "bit.ly/gapbnov 🚀\n\nBuild AI..."
   text = text.replace(
     /(https?:\/\/[^\s]+|bit\.ly\/[^\s]+)(\s*[\p{Extended_Pictographic}]*)\s+([A-Z])/gu,
     "$1$2\n\n$3"
   );
 
-  // 8. Numbered lists: "1. ", "2. ", etc.
-  text = text.replace(/([^\n])\s+(\d+[\.\)]\s+)/g, "$1\n$2");
-
-  // 9. Clean up multiple spaces and excessive newlines (max 2 consecutive newlines)
+  // 13. Clean up multiple spaces and excessive newlines (max 2 consecutive newlines)
   text = text
     .split("\n")
     .map((l) => l.trim())
