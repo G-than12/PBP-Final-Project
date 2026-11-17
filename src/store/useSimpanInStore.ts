@@ -4,7 +4,15 @@ import { persist, createJSONStorage, StateStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Collection, SavedItem, SortOption, AppSettings } from "../types/models";
 import { FOLDER_COLORS } from "../constants/theme";
-import { preserveFormattingDescription } from "../utils/metadataParser";
+import {
+  preserveFormattingDescription,
+  stripSocialPlatformWrappers,
+} from "../utils/metadataParser";
+import { cancelDeadlineNotification } from "../utils/notificationManager";
+import {
+  isValidParentChoice,
+  sanitizeCollectionHierarchy,
+} from "../utils/collectionHierarchy";
 
 const ssrSafeStorage: StateStorage = {
   getItem: async (name) => {
@@ -49,6 +57,7 @@ interface SimpanInStoreState {
   setDarkMode: (enabled: boolean) => void;
   setHomeTitle: (title: [string, string]) => void;
   setCloudSync: (enabled: boolean) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
   setSortOption: (option: SortOption) => void;
 
   // Collections (UNLIMITED)
@@ -73,6 +82,10 @@ interface SimpanInStoreState {
     notes?: string;
     image?: string;
     author?: string;
+    deadline?: number | null;
+    reminderTiming?: "h3" | "h1" | "h0" | "custom" | null;
+    reminderNotificationId?: string | null;
+    customReminderTime?: number | null;
   }) => SavedItem;
   updateLink: (id: string, updates: Partial<SavedItem>) => void;
   deleteLink: (id: string) => void;
@@ -106,6 +119,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         homeTitle: ["Simpan sekarang.", "Temukan kapan saja."],
         cloudSyncEnabled: false,
         autoExtractMetadata: true,
+        notificationsEnabled: false,
       },
       collections: [SYSTEM_COLLECTION],
       items: [],
@@ -140,6 +154,11 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           settings: { ...state.settings, cloudSyncEnabled: enabled },
         })),
 
+      setNotificationsEnabled: (enabled) =>
+        set((state) => ({
+          settings: { ...state.settings, notificationsEnabled: enabled },
+        })),
+
       setSortOption: (option) => set({ sortOption: option }),
 
       addCollection: ({ name, color, icon, parentId = null }) => {
@@ -156,11 +175,23 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
       },
 
       updateCollection: (id, updates) => {
-        set((state) => ({
-          collections: state.collections.map((c) =>
-            c.id === id ? { ...c, ...updates } : c
-          ),
-        }));
+        set((state) => {
+          const cleanUpdates = { ...updates };
+          // Validasi parentId untuk mencegah circular dependency / perulangan siklus
+          if (cleanUpdates.parentId !== undefined && cleanUpdates.parentId !== null) {
+            if (!isValidParentChoice(id, cleanUpdates.parentId, state.collections)) {
+              cleanUpdates.parentId = null;
+            }
+          }
+
+          const updatedCols = state.collections.map((c) =>
+            c.id === id ? { ...c, ...cleanUpdates } : c
+          );
+
+          return {
+            collections: sanitizeCollectionHierarchy(updatedCols),
+          };
+        });
       },
 
       deleteCollection: (id) => {
@@ -183,7 +214,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
               : it
           );
 
-          return { collections: updatedCols, items: updatedItems };
+          return {
+            collections: sanitizeCollectionHierarchy(updatedCols),
+            items: updatedItems,
+          };
         });
       },
 
@@ -198,6 +232,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         notes = "",
         image,
         author,
+        deadline = null,
+        reminderTiming = null,
+        reminderNotificationId = null,
+        customReminderTime = null,
       }) => {
         const fallbackCol = get().collections[0]?.id || SYSTEM_COLLECTION.id;
         const newLink: SavedItem = {
@@ -214,12 +252,24 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           createdAt: Date.now(),
           image,
           author: author?.trim(),
+          deadline,
+          reminderTiming,
+          reminderNotificationId,
+          customReminderTime,
         };
         set((state) => ({ items: [newLink, ...state.items] }));
         return newLink;
       },
 
       updateLink: (id, updates) => {
+        const target = get().items.find((i) => i.id === id);
+        // If deadline is explicitly removed or notification ID changed, cancel old notification
+        if (target?.reminderNotificationId) {
+          if (updates.deadline === null || (updates.reminderNotificationId && updates.reminderNotificationId !== target.reminderNotificationId)) {
+            cancelDeadlineNotification(target.reminderNotificationId);
+          }
+        }
+
         const cleanUpdates = { ...updates };
         if (cleanUpdates.description !== undefined) {
           cleanUpdates.description = preserveFormattingDescription(cleanUpdates.description);
@@ -230,6 +280,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
       },
 
       deleteLink: (id) => {
+        const target = get().items.find((i) => i.id === id);
+        if (target?.reminderNotificationId) {
+          cancelDeadlineNotification(target.reminderNotificationId);
+        }
         set((state) => ({
           items: state.items.filter((i) => i.id !== id),
         }));
@@ -400,7 +454,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             image: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800",
           },
           {
-            id: "item_demo_4",
+            id: "item_demo_5",
             url: "https://reactnative.dev/docs/intro-to-react-native",
             title: "Arsitektur Expo Router & TypeScript Terbaik untuk Aplikasi Mobile",
             description: "Panduan best practice struktur folder, local-first state, dan Neobrutalist design.",
@@ -413,7 +467,23 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             createdAt: Date.now() - 3600000 * 72,
           },
           {
-            id: "item_demo_5",
+            id: "item_demo_lomba",
+            url: "https://instagram.com/p/lomba-desain-nasional-2026",
+            title: "Lomba Desain UI/UX & Web Nasional 2026",
+            description: "Pendaftaran Kompetisi UI/UX Nasional tingkat mahasiswa. Tema: Inovasi Digital untuk Masa Depan.\n\nBatas Pengumpulan: 25 November 2026\nHadiah total: Rp 25.000.000",
+            source: "Instagram",
+            author: "BEM Fasilkom",
+            collectionId: "inbox",
+            isPinned: true,
+            isReviewed: false,
+            tags: ["lomba", "uiux", "kompetisi", "desain"],
+            notes: "Tim terdiri dari 3 orang. Proposal wajib dikirim sebelum deadline.",
+            createdAt: Date.now() - 3600000 * 5,
+            deadline: Date.now() + 3600000 * 24 * 3, // 3 days from now
+            reminderTiming: "h3",
+          },
+          {
+            id: "item_demo_6",
             url: "https://twitter.com/design_gems/status/189283749281",
             title: "Prinsip Neobrutalisme dalam Desain Antarmuka Modern 2026",
             description: "Kombinasi border 2px, shadow offset tajam, dan kontras warna pastel cerah.",
@@ -438,7 +508,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         set((state) => {
           let cols =
             data.collections && Array.isArray(data.collections) && data.collections.length > 0
-              ? data.collections
+              ? sanitizeCollectionHierarchy(data.collections)
               : state.collections;
 
           if (!cols.some((c) => c.id === SYSTEM_COLLECTION.id || c.isSystem)) {
@@ -449,7 +519,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           const settings = { ...state.settings, ...data.settings };
 
           return {
-            collections: cols,
+            collections: sanitizeCollectionHierarchy(cols),
             items: its,
             settings,
           };
@@ -459,6 +529,42 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
     {
       name: "simpanin_app_store_v2",
       storage: createJSONStorage(() => ssrSafeStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (state.collections && Array.isArray(state.collections)) {
+            state.collections = sanitizeCollectionHierarchy(state.collections);
+          }
+          if (state.items && Array.isArray(state.items)) {
+            const seenIds = new Set<string>();
+            state.items = state.items.map((it, idx) => {
+              let cleanId = it.id;
+              if (seenIds.has(cleanId)) {
+                cleanId = `${cleanId}_dup_${idx}`;
+              }
+              seenIds.add(cleanId);
+
+              let desc = it.description;
+              if (desc) {
+                desc = preserveFormattingDescription(desc);
+              }
+
+              let title = it.title;
+              let author = it.author;
+              if (title) {
+                const stripped = stripSocialPlatformWrappers(title);
+                if (stripped.cleaned && stripped.cleaned !== title) {
+                  title = stripped.cleaned;
+                  if (stripped.author && !author) {
+                    author = stripped.author;
+                  }
+                }
+              }
+
+              return { ...it, id: cleanId, description: desc, title, author };
+            });
+          }
+        }
+      },
     }
   )
 );
