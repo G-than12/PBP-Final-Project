@@ -22,6 +22,10 @@ import {
   Edit3,
   Layers,
   FolderPlus,
+  BookmarkPlus,
+  BookOpen,
+  CheckCircle2,
+  Pin,
 } from "lucide-react-native";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
@@ -61,7 +65,7 @@ export default function CollectionScreen() {
   const deleteLink = useSimpanInStore((state) => state.deleteLink);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "unreviewed" | "pinned">("all");
+  const [filterType, setFilterType] = useState<"all" | "unreviewed" | "pinned" | "deadline">("all");
   const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [showMenuSheet, setShowMenuSheet] = useState(false);
   const [showEditSheet, setShowEditSheet] = useState(false);
@@ -140,6 +144,8 @@ export default function CollectionScreen() {
       result = result.filter((it) => !it.isReviewed);
     } else if (filterType === "pinned") {
       result = result.filter((it) => it.isPinned);
+    } else if (filterType === "deadline") {
+      result = result.filter((it) => Boolean(it.deadline));
     }
 
     return result;
@@ -162,7 +168,11 @@ export default function CollectionScreen() {
           ]}
           onPress={() => {
             Haptics.selectionAsync();
-            safeBack(router, "/home");
+            if (!currentCollection.parentId) {
+              router.replace("/home");
+            } else {
+              safeBack(router, "/home");
+            }
           }}
           accessibilityLabel="Kembali"
         >
@@ -312,92 +322,201 @@ export default function CollectionScreen() {
           </View>
         )}
 
-        {/* Filter Chips */}
-        <View style={styles.filterRow}>
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === "all" && styles.filterPillActive,
-              { borderColor: isDark ? "#4A4640" : "#000000" },
-            ]}
-            onPress={() => setFilterType("all")}
-          >
-            <Text
+        {/* Filter Chips - only show if collection has items */}
+        {collectionItems.length > 0 && (
+          <View style={styles.filterRow}>
+            <TouchableOpacity
               style={[
-                styles.filterPillText,
-                filterType === "all" && styles.filterPillTextActive,
-                { color: filterType === "all" ? "#000000" : theme.text },
+                styles.filterPill,
+                filterType === "all" && styles.filterPillActive,
+                { borderColor: isDark ? "#4A4640" : "#000000" },
               ]}
+              onPress={() => setFilterType("all")}
             >
-              Semua {collectionItems.length}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  filterType === "all" && styles.filterPillTextActive,
+                  { color: filterType === "all" ? "#000000" : theme.text },
+                ]}
+              >
+                Semua ({collectionItems.length})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === "unreviewed" && styles.filterPillActive,
-              { borderColor: isDark ? "#4A4640" : "#000000" },
-            ]}
-            onPress={() => setFilterType("unreviewed")}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.filterPillText,
-                filterType === "unreviewed" && styles.filterPillTextActive,
-                { color: filterType === "unreviewed" ? "#000000" : theme.text },
+                styles.filterPill,
+                filterType === "unreviewed" && styles.filterPillActive,
+                { borderColor: isDark ? "#4A4640" : "#000000" },
               ]}
+              onPress={() => setFilterType("unreviewed")}
             >
-              Belum Ditinjau {collectionItems.filter((i) => !i.isReviewed).length}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  filterType === "unreviewed" && styles.filterPillTextActive,
+                  { color: filterType === "unreviewed" ? "#000000" : theme.text },
+                ]}
+              >
+                Belum Ditinjau ({collectionItems.filter((i) => !i.isReviewed).length})
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.filterPill,
-              filterType === "pinned" && styles.filterPillActive,
-              { borderColor: isDark ? "#4A4640" : "#000000" },
-            ]}
-            onPress={() => setFilterType("pinned")}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.filterPillText,
-                filterType === "pinned" && styles.filterPillTextActive,
-                { color: filterType === "pinned" ? "#000000" : theme.text },
+                styles.filterPill,
+                filterType === "pinned" && styles.filterPillActive,
+                { borderColor: isDark ? "#4A4640" : "#000000" },
               ]}
+              onPress={() => setFilterType("pinned")}
             >
-              Disematkan {collectionItems.filter((i) => i.isPinned).length}
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.filterPillText,
+                  filterType === "pinned" && styles.filterPillTextActive,
+                  { color: filterType === "pinned" ? "#000000" : theme.text },
+                ]}
+              >
+                Disematkan ({collectionItems.filter((i) => i.isPinned).length})
+              </Text>
+            </TouchableOpacity>
 
-        {/* Items Section Label */}
-        <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
-          SIMPANAN ({displayedItems.length})
-        </Text>
+            {collectionItems.some((i) => i.deadline) && (
+              <TouchableOpacity
+                style={[
+                  styles.filterPill,
+                  filterType === "deadline" && styles.filterPillActive,
+                  { borderColor: isDark ? "#4A4640" : "#000000" },
+                ]}
+                onPress={() => setFilterType("deadline")}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    filterType === "deadline" && styles.filterPillTextActive,
+                    { color: filterType === "deadline" ? "#000000" : theme.text },
+                  ]}
+                >
+                  Tenggat ({collectionItems.filter((i) => i.deadline).length})
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Items Section Label - only when items exist */}
+        {collectionItems.length > 0 && (
+          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+            SIMPANAN ({displayedItems.length})
+          </Text>
+        )}
 
         {/* Empty State vs 2-Column Grid */}
         {displayedItems.length === 0 ? (
-          <View style={styles.emptyStateBox}>
-            <Text style={styles.emptyFolderIcon}>▰</Text>
-            <Text style={[styles.emptyStateTitle, { color: theme.text }]}>
-              Belum ada simpanan
-            </Text>
-            <Text style={[styles.emptyStateDesc, { color: theme.textMuted }]}>
-              Ketuk + atau bagikan tautan dari aplikasi lain untuk menyimpan.
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyActionBtn}
-              onPress={() => setShowGuideModal(true)}
+          <View
+            style={[
+              styles.emptyCard,
+              {
+                backgroundColor: theme.card,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.emptyIconBox,
+                {
+                  backgroundColor: isDark ? "#2A2723" : "#F7CB54",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
             >
-              <Text style={styles.emptyActionBtnText}>Lihat caranya</Text>
-            </TouchableOpacity>
+              {searchQuery.trim() ? (
+                <Search size={22} color={isDark ? theme.text : "#000000"} strokeWidth={2.4} />
+              ) : (
+                <BookmarkPlus size={22} color={isDark ? theme.text : "#000000"} strokeWidth={2.4} />
+              )}
+            </View>
+
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>
+              {searchQuery.trim()
+                ? "Tidak ada hasil"
+                : filterType === "pinned"
+                ? "Belum ada sematan"
+                : filterType === "unreviewed"
+                ? "Semua sudah ditinjau"
+                : "Belum ada tautan"}
+            </Text>
+
+            <Text style={[styles.emptyDesc, { color: theme.textMuted }]}>
+              {searchQuery.trim()
+                ? `Tidak ada tautan yang cocok dengan "${searchQuery}".`
+                : filterType === "pinned"
+                ? "Tautan yang kamu sematkan akan tampil di sini."
+                : filterType === "unreviewed"
+                ? "Semua tautan di folder ini sudah selesai ditinjau."
+                : "Folder ini masih kosong. Simpan tautan baru atau bagikan langsung dari aplikasi lain."}
+            </Text>
+
+            {searchQuery.trim() ? (
+              <TouchableOpacity
+                style={[
+                  styles.emptyResetBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => setSearchQuery("")}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.emptyResetBtnText, { color: theme.text }]}>
+                  Hapus pencarian
+                </Text>
+              </TouchableOpacity>
+            ) : filterType !== "all" ? (
+              <TouchableOpacity
+                style={[
+                  styles.emptyResetBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => setFilterType("all")}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.emptyResetBtnText, { color: theme.text }]}>
+                  Lihat semua
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.emptyGuideBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setShowGuideModal(true);
+                }}
+                activeOpacity={0.85}
+              >
+                <BookOpen size={15} color={theme.text} strokeWidth={2.4} />
+                <Text style={[styles.emptyGuideBtnText, { color: theme.text }]}>
+                  Panduan Simpan
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <View style={styles.itemGrid}>
-            {displayedItems.map((item) => (
-              <View key={item.id} style={styles.gridHalf}>
+            {displayedItems.map((item, index) => (
+              <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                 <FigmaItemCard
                   item={item}
                   onPress={() => router.push(`/link/${item.id}`)}
@@ -465,7 +584,7 @@ export default function CollectionScreen() {
             <View style={styles.menuItemTextCol}>
               <Text style={[styles.menuItemTitle, { color: theme.text }]}>Tambah Subkoleksi</Text>
               <Text style={[styles.menuItemSub, { color: theme.textMuted }]}>
-                Buat subfolder tanpa batas di dalam koleksi ini
+                Buat subfolder di dalam koleksi ini
               </Text>
             </View>
           </TouchableOpacity>
@@ -483,7 +602,7 @@ export default function CollectionScreen() {
             <View style={styles.menuItemTextCol}>
               <Text style={[styles.menuItemTitle, { color: theme.text }]}>Edit Koleksi</Text>
               <Text style={[styles.menuItemSub, { color: theme.textMuted }]}>
-                Ganti nama, warna ({currentCollection.color}), atau ikon
+                Ubah nama, warna, atau ikon
               </Text>
             </View>
           </TouchableOpacity>
@@ -553,6 +672,10 @@ export default function CollectionScreen() {
         onSave={(data) => {
           updateCollection(currentCollection.id, data);
           setShowEditSheet(false);
+          // Jika diubah menjadi koleksi utama (tanpa induk), arahkan langsung ke /home
+          if (!data.parentId) {
+            router.replace("/home");
+          }
         }}
       />
 
@@ -563,8 +686,12 @@ export default function CollectionScreen() {
         existingCollections={collections}
         onClose={() => setShowSubSheet(false)}
         onSave={(data) => {
-          addCollection({ ...data, parentId: currentCollection.id });
+          addCollection(data);
           setShowSubSheet(false);
+          // Jika pengguna memilih menjadi koleksi utama (tanpa induk), arahkan ke /home
+          if (!data.parentId) {
+            router.replace("/home");
+          }
         }}
       />
 
@@ -587,8 +714,8 @@ export default function CollectionScreen() {
       <NeoConfirmModal
         visible={showDeleteConfirm}
         title={`Hapus "${currentCollection.name}"?`}
-        message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
-        confirmText="Ya, Hapus"
+        message="Folder ini akan dihapus. Semua link di dalamnya akan dipindahkan ke folder 'Belum Diurutkan'."
+        confirmText="Hapus Koleksi"
         cancelText="Batal"
         isDestructive
         onConfirm={handleDelete}
@@ -627,6 +754,10 @@ export default function CollectionScreen() {
           onSave={(data) => {
             updateCollection(targetEditingCol.id, data);
             setTargetEditingCol(null);
+            // Jika subkoleksi dipindahkan menjadi koleksi utama, arahkan ke /home
+            if (!data.parentId) {
+              router.replace("/home");
+            }
           }}
         />
       )}
@@ -879,48 +1010,81 @@ const styles = StyleSheet.create({
     width: "47.5%",
     marginBottom: 18,
   },
-  emptyStateBox: {
+  emptyCard: {
+    borderWidth: 2,
+    borderRadius: 14,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-  },
-  emptyFolderIcon: {
-    fontSize: 72,
-    color: "#F7CB54",
-    textShadowColor: "#000000",
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 0,
-    marginBottom: 12,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 6,
-  },
-  emptyStateDesc: {
-    fontSize: 12,
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  emptyActionBtn: {
-    backgroundColor: "#F7CB54",
-    borderWidth: 2,
-    borderColor: "#000000",
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
     shadowColor: "#000000",
-    shadowOffset: { width: 3, height: 3 },
+    shadowOffset: { width: 3.5, height: 3.5 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 3,
+    marginTop: 8,
+    marginBottom: 24,
   },
-  emptyActionBtnText: {
-    fontSize: 13,
+  emptyIconBox: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  emptyTitle: {
+    fontSize: 17,
     fontWeight: "900",
-    color: "#000000",
+    letterSpacing: -0.4,
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  emptyDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: "center",
+    marginBottom: 18,
+    maxWidth: 290,
+  },
+  emptyGuideBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  emptyGuideBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  emptyResetBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderWidth: 2,
+    borderRadius: 8,
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  emptyResetBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
   fabBtn: {
     position: "absolute",
