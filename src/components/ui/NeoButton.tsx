@@ -43,7 +43,7 @@ export function NeoButton({
   };
 
   const getBackgroundColor = () => {
-    if (disabled) return isDark ? "#33302C" : "#E4DCCF";
+    if (disabled) return isDark ? "#2C2926" : "#E8E2D5";
     switch (variant) {
       case "yellow":
         return "#F7CB54";
@@ -61,7 +61,7 @@ export function NeoButton({
   };
 
   const getTextColor = () => {
-    if (disabled) return isDark ? "#666158" : "#8A8478";
+    if (disabled) return isDark ? "#8A8478" : "#6E685E";
     switch (variant) {
       case "yellow":
         return "#000000";
@@ -92,7 +92,6 @@ export function NeoButton({
           borderColor: isDark ? (variant === "ghost" ? "transparent" : "#4A4640") : (variant === "ghost" ? "transparent" : "#000000"),
         },
         variant !== "ghost" && !disabled && (isPressed ? styles.pressedOffset : NEO_SHADOW_SM),
-        disabled && { opacity: 0.6 },
         style,
       ]}
     >
