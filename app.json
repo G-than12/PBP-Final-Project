@@ -7,19 +7,27 @@
     "icon": "./assets/icon.png",
     "scheme": "simpanin",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FBF8F3"
-    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.simpanin.app"
     },
     "android": {
+      "package": "com.simpanin.app",
       "adaptiveIcon": {
         "backgroundColor": "#FBF8F3",
         "foregroundImage": "./assets/android-icon-foreground.png"
-      }
+      },
+      "intentFilters": [
+        {
+          "action": "SEND",
+          "data": {
+            "mimeType": "text/*"
+          },
+          "category": [
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -27,8 +35,35 @@
       "output": "server"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-sharing",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FBF8F3"
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "ios": {
+            "enabled": true
+          },
+          "android": {
+            "enabled": true
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#F7CB54"
+        }
+      ]
     ]
   }
 }
-
