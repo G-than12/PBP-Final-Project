@@ -20,6 +20,10 @@ import {
   Clipboard as ClipboardIcon,
   Bell,
   Pin,
+  X,
+  Sparkles,
+  ArrowRight,
+  Clock,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../src/store/useSimpanInStore";
 import { Collection, SavedItem, SortOption } from "../src/types/models";
@@ -38,6 +42,7 @@ import { SaveLinkSheet } from "../src/components/sheets/SaveLinkSheet";
 import { CollectionFormSheet } from "../src/components/sheets/CollectionFormSheet";
 import { ShareCollectionSheet } from "../src/components/sheets/ShareCollectionSheet";
 import { HomeTitleEditorSheet } from "../src/components/sheets/HomeTitleEditorSheet";
+import { useIncomingShare } from "../src/hooks/useIncomingShare";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -48,7 +53,25 @@ export default function HomeScreen() {
   const homeTitle = useSimpanInStore((state) => state.settings.homeTitle);
   const setHomeTitle = useSimpanInStore((state) => state.setHomeTitle);
   const collections = useSimpanInStore((state) => state.collections);
-  const items = useSimpanInStore((state) => state.items);
+  const rawItems = useSimpanInStore((state) => state.items);
+  const items = useMemo(() => {
+    const seen = new Set<string>();
+    let hasDupes = false;
+    const unique = rawItems.map((it, idx) => {
+      if (seen.has(it.id)) {
+        hasDupes = true;
+        return { ...it, id: `${it.id}_dup_${idx}` };
+      }
+      seen.add(it.id);
+      return it;
+    });
+    if (hasDupes) {
+      setTimeout(() => {
+        useSimpanInStore.setState({ items: unique });
+      }, 0);
+    }
+    return unique;
+  }, [rawItems]);
   const sortOption = useSimpanInStore((state) => state.sortOption);
   const setSortOption = useSimpanInStore((state) => state.setSortOption);
 
@@ -64,6 +87,27 @@ export default function HomeScreen() {
   const [saveInitialUrl, setSaveInitialUrl] = useState("");
   const [showCollectionSheet, setShowCollectionSheet] = useState(false);
   const [showTitleEditor, setShowTitleEditor] = useState(false);
+  const [defaultColIdForSave, setDefaultColIdForSave] = useState<string | undefined>(undefined);
+  const [isIncomingShare, setIsIncomingShare] = useState(false);
+  const [justSavedTarget, setJustSavedTarget] = useState<{
+    collectionName: string;
+    sourcePlatform: string;
+  } | null>(null);
+
+  // System Share Target & Clipboard Auto-Detection
+  const {
+    detectedClipboard,
+    dismissDetectedClipboard,
+    markUrlProcessed,
+    returnToPreviousApp,
+  } = useIncomingShare((share) => {
+    // If incoming share is from native system SEND intent, auto-open SaveLinkSheet immediately
+    if (share.source === "share_intent") {
+      setSaveInitialUrl(share.url);
+      setIsIncomingShare(true);
+      setShowSaveSheet(true);
+    }
+  });
 
   // Quick Action Modal states on folder long-press
   const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
@@ -105,6 +149,17 @@ export default function HomeScreen() {
     return items.filter((i) => i.isPinned);
   }, [items]);
 
+  const deadlineItems = useMemo(() => {
+    const now = Date.now();
+    return items
+      .filter((i) => i.deadline && i.deadline > now - 24 * 3600 * 1000)
+      .sort((a, b) => (a.deadline || 0) - (b.deadline || 0));
+  }, [items]);
+
+  const recentItems = useMemo(() => {
+    return [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
+  }, [items]);
+
   // Collection stats
   const collectionStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -128,8 +183,8 @@ export default function HomeScreen() {
     const roots = collections.filter((c) => !c.parentId);
     return roots.sort((a, b) => {
       if (sortOption === "title") return a.name.localeCompare(b.name);
-      if (sortOption === "oldest") return a.createdAt - b.createdAt;
-      return b.createdAt - a.createdAt;
+      if (sortOption === "oldest") return (a.createdAt || 0) - (b.createdAt || 0);
+      return (b.createdAt || 0) - (a.createdAt || 0);
     });
   }, [collections, sortOption]);
 
@@ -234,6 +289,67 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Detected Incoming Link Banner (from Clipboard / Shared App) */}
+        {detectedClipboard && (
+          <View
+            style={[
+              styles.detectedBanner,
+              {
+                backgroundColor: theme.surface,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <View style={styles.detectedBannerTop}>
+              <View style={styles.detectedBadge}>
+                <Sparkles size={12} color="#000000" />
+                <Text style={styles.detectedBadgeText}>
+                  LINK {detectedClipboard.platformName.toUpperCase()} TERDETEKSI
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={dismissDetectedClipboard}
+                style={styles.detectedDismissBtn}
+                accessibilityLabel="Tutup pemberitahuan"
+              >
+                <X size={16} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text
+              style={[styles.detectedUrlText, { color: theme.text }]}
+              numberOfLines={1}
+            >
+              {detectedClipboard.url}
+            </Text>
+
+            <View style={styles.detectedBtnRow}>
+              <TouchableOpacity
+                style={styles.detectedDismissTextBtn}
+                onPress={dismissDetectedClipboard}
+              >
+                <Text style={[styles.detectedDismissText, { color: theme.textMuted }]}>
+                  Tutup
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.detectedSaveBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSaveInitialUrl(detectedClipboard.url);
+                  setIsIncomingShare(true);
+                  setShowSaveSheet(true);
+                  dismissDetectedClipboard();
+                }}
+              >
+                <Text style={styles.detectedSaveBtnText}>Simpan Link →</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Hero 2-Line Title */}
         <TouchableOpacity
           activeOpacity={0.8}
@@ -271,7 +387,7 @@ export default function HomeScreen() {
 
           <TextInput
             style={[styles.quickSaveInput, { color: theme.text }]}
-            placeholder="# Tempel link untuk simpan cepat"
+            placeholder="Tempel link di sini..."
             placeholderTextColor={theme.textSecondary}
             value={quickUrl}
             onChangeText={setQuickUrl}
@@ -381,6 +497,37 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Approaching Deadlines Section */}
+        {deadlineItems.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <View style={styles.pinnedTitleRow}>
+                <Clock size={16} color={theme.text} strokeWidth={2.4} />
+                <Text style={[styles.sectionHeading, { color: theme.text }]}>
+                  Tenggat Terdekat ({deadlineItems.length})
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.folderGrid}>
+              {deadlineItems.map((item, index) => (
+                <View key={`deadline-${item.id}-${index}`} style={styles.gridItem}>
+                  <FigmaItemCard
+                    item={item}
+                    onPress={() => router.push(`/link/${item.id}`)}
+                    onLongPress={(rect) => {
+                      setItemActionTarget({
+                        item,
+                        rect,
+                      });
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* Pinned Bookmarks Section */}
         {pinnedItems.length > 0 && (
           <View style={styles.section}>
@@ -394,8 +541,46 @@ export default function HomeScreen() {
             </View>
 
             <View style={styles.folderGrid}>
-              {pinnedItems.map((item) => (
-                <View key={item.id} style={styles.gridItem}>
+              {pinnedItems.map((item, index) => (
+                <View key={`${item.id}-${index}`} style={styles.gridItem}>
+                  <FigmaItemCard
+                    item={item}
+                    onPress={() => router.push(`/link/${item.id}`)}
+                    onLongPress={(rect) => {
+                      setItemActionTarget({
+                        item,
+                        rect,
+                      });
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Recent Saves Section */}
+        {items.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={[styles.sectionHeading, { color: theme.text }]}>
+                Simpanan Terbaru ({items.length})
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push("/search");
+                }}
+              >
+                <Text style={[styles.seeAllText, { color: theme.primary }]}>
+                  Lihat Semua →
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.folderGrid}>
+              {recentItems.map((item, index) => (
+                <View key={`${item.id}-${index}`} style={styles.gridItem}>
                   <FigmaItemCard
                     item={item}
                     onPress={() => router.push(`/link/${item.id}`)}
@@ -432,18 +617,34 @@ export default function HomeScreen() {
         visible={showSaveSheet}
         collections={collections}
         initialUrl={saveInitialUrl}
+        defaultCollectionId={defaultColIdForSave}
         onClose={() => {
           setShowSaveSheet(false);
           setSaveInitialUrl("");
+          setIsIncomingShare(false);
+          setDefaultColIdForSave(undefined);
         }}
         onSave={(data) => {
           addLink(data);
           setShowSaveSheet(false);
+          markUrlProcessed(data.url);
           setSaveInitialUrl("");
+          setDefaultColIdForSave(undefined);
+
+          const colName =
+            collections.find((c) => c.id === data.collectionId)?.name || "Koleksi";
+          const sourceName = data.source || "Aplikasi Sebelumnya";
+
+          if (isIncomingShare || Platform.OS === "android") {
+            setJustSavedTarget({
+              collectionName: colName,
+              sourcePlatform: sourceName,
+            });
+          }
+          setIsIncomingShare(false);
         }}
         onRequestCreateCollection={() => {
           setShowSaveSheet(false);
-          setSaveInitialUrl("");
           setShowCollectionSheet(true);
         }}
       />
@@ -452,12 +653,41 @@ export default function HomeScreen() {
       <CollectionFormSheet
         visible={showCollectionSheet}
         existingCollections={collections}
-        onClose={() => setShowCollectionSheet(false)}
-        onSave={(data) => {
-          addCollection(data);
+        onClose={() => {
           setShowCollectionSheet(false);
+          if (saveInitialUrl) {
+            setShowSaveSheet(true);
+          }
+        }}
+        onSave={(data) => {
+          const newCol = addCollection(data);
+          setShowCollectionSheet(false);
+          // If we had a shared URL waiting, re-open SaveLinkSheet with this new collection pre-selected!
+          if (saveInitialUrl) {
+            setDefaultColIdForSave(newCol.id);
+            setShowSaveSheet(true);
+          }
         }}
       />
+
+      {/* Return to Previous App Prompt (e.g. Instagram/Threads) */}
+      {justSavedTarget && (
+        <NeoConfirmModal
+          visible={!!justSavedTarget}
+          title={`Tersimpan di ${justSavedTarget.collectionName}!`}
+          message={`Mau lanjut buka ${justSavedTarget.sourcePlatform}?`}
+          confirmText={`Balik ke ${justSavedTarget.sourcePlatform}`}
+          cancelText="Tetap di sini"
+          onConfirm={() => {
+            const target = justSavedTarget;
+            setJustSavedTarget(null);
+            returnToPreviousApp();
+          }}
+          onCancel={() => {
+            setJustSavedTarget(null);
+          }}
+        />
+      )}
 
       {/* Title Editor Sheet */}
       <HomeTitleEditorSheet
@@ -744,6 +974,81 @@ const styles = StyleSheet.create({
     width: "47.5%",
     marginBottom: 18,
   },
+  detectedBanner: {
+    borderWidth: 2,
+    borderRadius: 14,
+    padding: 14,
+    shadowColor: "#000000",
+    shadowOffset: { width: 3, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 4,
+    marginBottom: 16,
+    gap: 8,
+  },
+  detectedBannerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  detectedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#F7CB54",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  detectedBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "900",
+    color: "#000000",
+    letterSpacing: 0.5,
+  },
+  detectedDismissBtn: {
+    padding: 4,
+  },
+  detectedUrlText: {
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 16,
+  },
+  detectedBtnRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 4,
+  },
+  detectedDismissTextBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  detectedDismissText: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  detectedSaveBtn: {
+    backgroundColor: "#F7CB54",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  detectedSaveBtnText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#000000",
+  },
   fabBtn: {
     position: "absolute",
     bottom: 24,
@@ -762,5 +1067,9 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 6,
     zIndex: 99,
+  },
+  seeAllText: {
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
