@@ -26,8 +26,12 @@ import {
   Trash2,
   ExternalLink,
   Plus,
+  Calendar,
+  Clock,
+  Bell,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
+import { SavedItem } from "../../src/types/models";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { NeoButton } from "../../src/components/ui/NeoButton";
 import { NeoConfirmModal } from "../../src/components/ui/NeoConfirmModal";
@@ -36,12 +40,26 @@ import { PlatformLogo } from "../../src/components/ui/PlatformLogo";
 import { TagBadge } from "../../src/components/ui/TagBadge";
 import { MoveCollectionSheet } from "../../src/components/sheets/MoveCollectionSheet";
 import { TagManagerSheet } from "../../src/components/sheets/TagManagerSheet";
+import { DeadlinePickerSheet } from "../../src/components/sheets/DeadlinePickerSheet";
 import {
   fetchUrlMetadata,
   formatItemDateTime,
   formatDisplayUrl,
   preserveFormattingDescription,
+  stripSocialPlatformWrappers,
+  extractSmartTitleAndDescription,
 } from "../../src/utils/metadataParser";
+import {
+  detectDeadlineFromText,
+  formatDeadlineFullDate,
+  getDeadlineStatus,
+  getReminderTimingLabel,
+  calculateReminderTimestamp,
+} from "../../src/utils/deadlineNumberDetector";
+import {
+  scheduleDeadlineNotification,
+  cancelDeadlineNotification,
+} from "../../src/utils/notificationManager";
 import { safeBack } from "../../src/utils/navigation";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -78,23 +96,106 @@ export default function LinkDetailScreen() {
   const [isEditingDesc, setIsEditingDesc] = useState(false);
   const [editedDesc, setEditedDesc] = useState("");
 
+  const [showDeadlineModal, setShowDeadlineModal] = useState(false);
+
   const currentItem = useMemo(() => {
     return items.find((i) => i.id === id);
   }, [items, id]);
+
+  const deadlineStatus = useMemo(() => {
+    if (!currentItem?.deadline) return null;
+    return getDeadlineStatus(currentItem.deadline);
+  }, [currentItem?.deadline]);
+
+  const detectedFromContent = useMemo(() => {
+    if (!currentItem || currentItem.deadline) return null;
+    return detectDeadlineFromText(
+      `${currentItem.title} ${currentItem.description} ${currentItem.notes} ${currentItem.url}`
+    );
+  }, [
+    currentItem?.title,
+    currentItem?.description,
+    currentItem?.notes,
+    currentItem?.url,
+    currentItem?.deadline,
+  ]);
+
+  const handleApplyDeadline = async (
+    newDeadline: number,
+    newTiming: "h3" | "h1" | "h0" | "custom"
+  ) => {
+    if (!currentItem) return;
+    if (currentItem.reminderNotificationId) {
+      await cancelDeadlineNotification(currentItem.reminderNotificationId);
+    }
+    const reminderTime = calculateReminderTimestamp(newDeadline, newTiming);
+    const notifId = await scheduleDeadlineNotification({
+      itemId: currentItem.id,
+      title: currentItem.title,
+      deadlineTimestamp: newDeadline,
+      reminderTimestamp: reminderTime,
+      timing: newTiming,
+    });
+
+    updateLink(currentItem.id, {
+      deadline: newDeadline,
+      reminderTiming: newTiming,
+      reminderNotificationId: notifId,
+    });
+  };
+
+  const handleRemoveDeadline = async () => {
+    if (!currentItem) return;
+    if (currentItem.reminderNotificationId) {
+      await cancelDeadlineNotification(currentItem.reminderNotificationId);
+    }
+    updateLink(currentItem.id, {
+      deadline: null,
+      reminderTiming: null,
+      reminderNotificationId: null,
+    });
+  };
 
   const formattedDescription = useMemo(() => {
     if (!currentItem?.description) return "";
     return preserveFormattingDescription(currentItem.description);
   }, [currentItem?.description]);
 
-  // Auto-heal dirty or collapsed descriptions in the store
+  // Auto-heal dirty or collapsed descriptions & titles in the store
   React.useEffect(() => {
-    if (currentItem && currentItem.description && formattedDescription) {
-      if (currentItem.description !== formattedDescription) {
-        updateLink(currentItem.id, { description: formattedDescription });
+    if (currentItem) {
+      const updates: Partial<SavedItem> = {};
+      if (
+        currentItem.description &&
+        formattedDescription &&
+        currentItem.description !== formattedDescription
+      ) {
+        updates.description = formattedDescription;
+      }
+      if (currentItem.title) {
+        const stripped = stripSocialPlatformWrappers(currentItem.title);
+        if (stripped.cleaned && stripped.cleaned !== currentItem.title) {
+          const smart = extractSmartTitleAndDescription(
+            stripped.cleaned,
+            currentItem.author || stripped.author
+          );
+          updates.title = smart.title;
+          if (stripped.author && !currentItem.author) {
+            updates.author = stripped.author;
+          }
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        updateLink(currentItem.id, updates);
       }
     }
-  }, [currentItem?.id, currentItem?.description, formattedDescription, updateLink]);
+  }, [
+    currentItem?.id,
+    currentItem?.description,
+    currentItem?.title,
+    formattedDescription,
+    updateLink,
+  ]);
 
   const currentCollection = useMemo(() => {
     if (!currentItem) return collections[0];
@@ -496,6 +597,152 @@ export default function LinkDetailScreen() {
             </View>
           )}
 
+          {/* Section: PENGINGAT TENGGAT */}
+          <View style={styles.detailSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+                PENGINGAT TENGGAT
+              </Text>
+            </View>
+
+            {currentItem.deadline && deadlineStatus ? (
+              <View
+                style={[
+                  styles.deadlineContainer,
+                  {
+                    backgroundColor: theme.cardSecondary,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View style={styles.deadlineContainerTop}>
+                  <View style={styles.deadlineInfoLeft}>
+                    <View
+                      style={[
+                        styles.deadlineStatusBadge,
+                        deadlineStatus.urgency === "urgent" && styles.badgeUrgent,
+                        deadlineStatus.urgency === "warning" && styles.badgeWarning,
+                      ]}
+                    >
+                      <Clock size={11} color="#000000" strokeWidth={2.6} />
+                      <Text style={styles.deadlineStatusBadgeText}>
+                        {deadlineStatus.label}
+                      </Text>
+                    </View>
+                    <Text style={[styles.deadlineDateMain, { color: theme.text }]}>
+                      {formatDeadlineFullDate(currentItem.deadline)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.deadlineTimingRow}>
+                  <Bell size={13} color={theme.textSecondary} strokeWidth={2.2} />
+                  <Text style={[styles.deadlineTimingText, { color: theme.textSecondary }]}>
+                    Notifikasi: {getReminderTimingLabel(currentItem.reminderTiming)}
+                  </Text>
+                </View>
+
+                <View style={styles.deadlineActionRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.deadlineEditBtn,
+                      {
+                        backgroundColor: "#F7CB54",
+                        borderColor: isDark ? "#4A4640" : "#000000",
+                      },
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      setShowDeadlineModal(true);
+                    }}
+                  >
+                    <Text style={styles.deadlineEditBtnText}>Ubah Pengingat</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.deadlineRemoveBtn,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: isDark ? "#4A4640" : "#000000",
+                      },
+                    ]}
+                    onPress={() => {
+                      Haptics.selectionAsync();
+                      handleRemoveDeadline();
+                    }}
+                  >
+                    <Text style={styles.deadlineRemoveBtnText}>Hapus</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : detectedFromContent ? (
+              <TouchableOpacity
+                style={[
+                  styles.detectedDeadlineCard,
+                  {
+                    backgroundColor: isDark ? "#2E2818" : "#FFF8DF",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  handleApplyDeadline(detectedFromContent.dateTimestamp, "h1");
+                }}
+                activeOpacity={0.85}
+              >
+                <View style={styles.detectedCardLeft}>
+                  <Clock size={16} color={isDark ? "#F7CB54" : "#B45309"} strokeWidth={2.4} />
+                  <View style={styles.detectedCardTextCol}>
+                    <Text style={[styles.detectedCardTitle, { color: theme.text }]}>
+                      Tenggat Terdeteksi: {detectedFromContent.formattedDate}
+                    </Text>
+                    <Text style={[styles.detectedCardSub, { color: theme.textSecondary }]}>
+                      Ditemukan pada teks simpanan. Ketuk untuk pasang pengingat.
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.detectedCardBtn,
+                    {
+                      backgroundColor: "#F7CB54",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <Text style={styles.detectedCardBtnText}>Pasang</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.addDeadlineCardEmpty,
+                  {
+                    backgroundColor: theme.cardSecondary,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setShowDeadlineModal(true);
+                }}
+                activeOpacity={0.8}
+              >
+                <Calendar size={18} color={theme.text} strokeWidth={2.2} />
+                <View style={styles.addDeadlineEmptyTextCol}>
+                  <Text style={[styles.addDeadlineEmptyTitle, { color: theme.text }]}>
+                    Pasang Pengingat Tenggat
+                  </Text>
+                  <Text style={[styles.addDeadlineEmptySub, { color: theme.textSecondary }]}>
+                    Cocok untuk lomba, beasiswa, tugas, atau promo.
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {/* Section: DESKRIPSI (Formatted with line breaks & paragraphs) */}
           <View style={styles.detailSection}>
             <View style={styles.sectionHeaderRow}>
@@ -653,12 +900,22 @@ export default function LinkDetailScreen() {
         onRemoveTag={(tag) => removeTag(currentItem.id, tag)}
       />
 
+      {/* Deadline & Reminder Picker Sheet */}
+      <DeadlinePickerSheet
+        visible={showDeadlineModal}
+        initialDeadline={currentItem.deadline}
+        initialTiming={currentItem.reminderTiming}
+        onClose={() => setShowDeadlineModal(false)}
+        onApply={(d, t) => handleApplyDeadline(d, t)}
+        onRemove={handleRemoveDeadline}
+      />
+
       {/* Reload Metadata Modal */}
       <NeoConfirmModal
         visible={showReloadConfirm}
-        title="Muat Ulang Metadata Link?"
-        message="Muat Ulang akan mengambil judul, thumbnail, dan deskripsi terbaru langsung dari tautan dengan format yang cermat. Catatan pribadimu tidak akan berubah."
-        confirmText="Ya, Muat Ulang"
+        title="Perbarui info link?"
+        message="SimpanIn akan mengambil judul, thumbnail, dan deskripsi terbaru dari web. Catatan pribadimu tetap aman."
+        confirmText="Perbarui"
         cancelText="Batal"
         onConfirm={handleReloadMetadata}
         onCancel={() => setShowReloadConfirm(false)}
@@ -667,9 +924,9 @@ export default function LinkDetailScreen() {
       {/* Delete Confirmation Modal */}
       <NeoConfirmModal
         visible={showDeleteConfirm}
-        title="Hapus Link Ini?"
-        message="Link ini akan dihapus secara permanen dari SimpanIn. Tindakan ini tidak dapat dibatalkan."
-        confirmText="Ya, Hapus"
+        title="Hapus link ini?"
+        message="Link yang dihapus tidak bisa dikembalikan lagi."
+        confirmText="Hapus"
         cancelText="Batal"
         isDestructive
         onConfirm={handleDelete}
@@ -1070,5 +1327,170 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
     marginTop: 4,
+  },
+  deadlineContainer: {
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 14,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2.5, height: 2.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  deadlineContainerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  deadlineInfoLeft: {
+    flex: 1,
+  },
+  deadlineStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 4,
+    backgroundColor: "#E2E8F0",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 6,
+  },
+  badgeUrgent: {
+    backgroundColor: "#FF6B6B",
+  },
+  badgeWarning: {
+    backgroundColor: "#F7CB54",
+  },
+  deadlineStatusBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#000000",
+  },
+  deadlineDateMain: {
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  deadlineTimingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 12,
+  },
+  deadlineTimingText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  deadlineActionRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  deadlineEditBtn: {
+    flex: 1,
+    borderWidth: 2,
+    borderRadius: 6,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  deadlineEditBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#000000",
+  },
+  deadlineRemoveBtn: {
+    borderWidth: 1.5,
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deadlineRemoveBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#FF6B6B",
+  },
+  detectedDeadlineCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  detectedCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    marginRight: 8,
+  },
+  detectedCardTextCol: {
+    flex: 1,
+  },
+  detectedCardTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  detectedCardSub: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  detectedCardBtn: {
+    borderWidth: 1.5,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  detectedCardBtnText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#000000",
+  },
+  addDeadlineCardEmpty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 2,
+    borderRadius: 8,
+    padding: 14,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  addDeadlineEmptyTextCol: {
+    flex: 1,
+  },
+  addDeadlineEmptyTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  addDeadlineEmptySub: {
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: 2,
   },
 });
