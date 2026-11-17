@@ -22,6 +22,10 @@ export interface SavedItem {
   createdAt: number;
   image?: string;
   author?: string;
+  deadline?: number | null; // Unix timestamp in ms
+  reminderTiming?: "h3" | "h1" | "h0" | "custom" | null;
+  reminderNotificationId?: string | null;
+  customReminderTime?: number | null;
 }
 
 export type SortOption = "newest" | "oldest" | "title" | "unreviewed";
@@ -31,6 +35,7 @@ export interface AppSettings {
   homeTitle: [string, string];
   cloudSyncEnabled: boolean;
   autoExtractMetadata: boolean;
+  notificationsEnabled: boolean;
   lastBackupDate?: string;
 }
 
