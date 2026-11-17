@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Check } from "lucide-react-native";
 import { Collection } from "../../types/models";
 import {
   FOLDER_COLORS,
@@ -21,6 +20,11 @@ import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { NeoBottomSheet } from "../ui/NeoBottomSheet";
 import { NeoButton } from "../ui/NeoButton";
 import { AppIcon } from "../ui/AppIcon";
+import {
+  getValidParentCollections,
+  getDescendantCollectionIds,
+  isValidParentChoice,
+} from "../../utils/collectionHierarchy";
 
 interface CollectionFormSheetProps {
   visible: boolean;
@@ -59,13 +63,30 @@ export function CollectionFormSheet({
       ? Math.min(48, Math.max(28, Math.floor((gridWidth - 7 * 8) / 8)))
       : 34;
 
+  // Hanya tampilkan koleksi induk yang valid (tidak termasuk diri sendiri dan seluruh subkoleksinya)
+  const validParents = useMemo(() => {
+    return getValidParentCollections(editingCollection, existingCollections);
+  }, [editingCollection, existingCollections]);
+
+  // Hitung jumlah subkoleksi turunan yang dilindungi dari perulangan siklus
+  const descendantCount = useMemo(() => {
+    if (!editingCollection) return 0;
+    return getDescendantCollectionIds(editingCollection.id, existingCollections).size;
+  }, [editingCollection, existingCollections]);
+
   useEffect(() => {
     if (visible) {
       if (editingCollection) {
         setName(editingCollection.name);
         setSelectedColor(editingCollection.color);
         setSelectedIcon(editingCollection.icon);
-        setSelectedParentId(editingCollection.parentId || null);
+        const currentParent = editingCollection.parentId || null;
+        const isValid = isValidParentChoice(
+          editingCollection.id,
+          currentParent,
+          existingCollections
+        );
+        setSelectedParentId(isValid ? currentParent : null);
       } else {
         setName("");
         setSelectedColor(FOLDER_COLORS[Math.floor(Math.random() * 6)]);
@@ -73,28 +94,38 @@ export function CollectionFormSheet({
         setSelectedParentId(defaultParentId);
       }
     }
-  }, [visible, editingCollection, defaultParentId]);
+  }, [visible, editingCollection?.id, defaultParentId]);
 
   const handleSave = () => {
     if (!name.trim()) return;
+
+    let safeParentId = selectedParentId;
+    if (editingCollection && safeParentId) {
+      if (!isValidParentChoice(editingCollection.id, safeParentId, existingCollections)) {
+        safeParentId = null;
+      }
+    }
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onSave({
       name: name.trim(),
       color: selectedColor,
       icon: selectedIcon,
-      parentId: selectedParentId,
+      parentId: safeParentId,
     });
     onClose();
   };
 
-  const validParents = existingCollections.filter(
-    (c) => !editingCollection || c.id !== editingCollection.id
-  );
-
   return (
     <NeoBottomSheet
       visible={visible}
-      title={editingCollection ? "Edit Koleksi" : "Tambah Koleksi Baru"}
+      title={
+        editingCollection
+          ? "Edit Koleksi"
+          : defaultParentId
+          ? "Tambah Subkoleksi"
+          : "Tambah Koleksi"
+      }
       onClose={onClose}
     >
       <ScrollView
@@ -105,7 +136,9 @@ export function CollectionFormSheet({
       >
         {/* Name Input */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>Nama Koleksi</Text>
+          <Text style={[styles.label, { color: theme.text }]}>
+            {defaultParentId ? "Nama Subkoleksi" : "Nama Koleksi"}
+          </Text>
           <TextInput
             style={[
               styles.input,
@@ -115,7 +148,7 @@ export function CollectionFormSheet({
                 color: theme.text,
               },
             ]}
-            placeholder="Contoh: Resep, Desain, Riset..."
+            placeholder={defaultParentId ? "Nama subkoleksi..." : "Nama koleksi..."}
             placeholderTextColor={theme.textSecondary}
             value={name}
             onChangeText={setName}
@@ -123,11 +156,9 @@ export function CollectionFormSheet({
           />
         </View>
 
-        {/* 16 Colors Grid */}
+        {/* Colors Grid */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>
-            PILIH WARNA (16 PILIHAN)
-          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Warna</Text>
           <View
             style={styles.colorGrid}
             onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}
@@ -150,19 +181,15 @@ export function CollectionFormSheet({
                     Haptics.selectionAsync();
                     setSelectedColor(c);
                   }}
-                >
-                  {isSelected && <Check size={14} color="#000000" strokeWidth={3} />}
-                </TouchableOpacity>
+                />
               );
             })}
           </View>
         </View>
 
-        {/* 24 Icons Grid */}
+        {/* Icons Grid */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>
-            PILIH IKON (24 PILIHAN)
-          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Ikon</Text>
           <View style={styles.iconGrid}>
             {FOLDER_ICONS.map((ic) => {
               const isSelected = selectedIcon === ic;
@@ -197,12 +224,12 @@ export function CollectionFormSheet({
 
         {/* Subcollection Parent Selector */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.label, { color: theme.text }]}>
-            Koleksi Induk (Subkoleksi Tanpa Batas)
-          </Text>
-          <Text style={[styles.subText, { color: theme.textSecondary }]}>
-            Tentukan apakah koleksi ini menjadi subfolder di dalam koleksi lain.
-          </Text>
+          <Text style={[styles.label, { color: theme.text }]}>Folder Induk</Text>
+          {editingCollection && descendantCount > 0 && (
+            <Text style={[styles.subText, { color: theme.textSecondary }]}>
+              {`${descendantCount} subkoleksi turunan disembunyikan agar hierarki tidak saling bertumpuk.`}
+            </Text>
+          )}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.parentRow}>
             <TouchableOpacity
               style={[
@@ -212,16 +239,22 @@ export function CollectionFormSheet({
                     selectedParentId === null ? "#F7CB54" : theme.cardSecondary,
                   borderColor: isDark ? "#4A4640" : "#000000",
                 },
+                selectedParentId === null && styles.parentChipSelected,
               ]}
-              onPress={() => setSelectedParentId(null)}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setSelectedParentId(null);
+              }}
+              activeOpacity={0.8}
             >
+              <AppIcon name="folder" size={14} color="#000000" />
               <Text
                 style={[
                   styles.parentChipText,
                   { color: selectedParentId === null ? "#000000" : theme.text },
                 ]}
               >
-                Koleksi Utama (Tanpa Induk)
+                Koleksi Utama
               </Text>
             </TouchableOpacity>
 
@@ -236,8 +269,13 @@ export function CollectionFormSheet({
                       backgroundColor: isSelected ? p.color : theme.cardSecondary,
                       borderColor: isSelected ? "#000000" : isDark ? "#4A4640" : "#000000",
                     },
+                    isSelected && styles.parentChipSelected,
                   ]}
-                  onPress={() => setSelectedParentId(p.id)}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    setSelectedParentId(p.id);
+                  }}
+                  activeOpacity={0.8}
                 >
                   <AppIcon name={p.icon} size={14} color="#000000" />
                   <Text
@@ -253,8 +291,18 @@ export function CollectionFormSheet({
             })}
           </ScrollView>
         </View>
+      </ScrollView>
 
-        {/* Submit Button */}
+      {/* Sticky Bottom Action Bar so user never misses Simpan Perubahan */}
+      <View
+        style={[
+          styles.stickyBottomBar,
+          {
+            backgroundColor: theme.surface,
+            borderTopColor: isDark ? "#4A4640" : "#E5E1D8",
+          },
+        ]}
+      >
         <NeoButton
           variant="primary"
           size="lg"
@@ -262,9 +310,13 @@ export function CollectionFormSheet({
           onPress={handleSave}
           style={styles.submitBtn}
         >
-          {editingCollection ? "Simpan Perubahan" : "Buat Koleksi"}
+          {editingCollection
+            ? "Simpan Perubahan"
+            : defaultParentId
+            ? "Buat Subkoleksi"
+            : "Buat Koleksi"}
         </NeoButton>
-      </ScrollView>
+      </View>
     </NeoBottomSheet>
   );
 }
@@ -348,12 +400,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     gap: 6,
   },
+  parentChipSelected: {
+    borderColor: "#000000",
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
   parentChipText: {
     fontSize: 12,
     fontWeight: "700",
   },
+  stickyBottomBar: {
+    paddingTop: 12,
+    paddingBottom: 4,
+    borderTopWidth: 1,
+  },
   submitBtn: {
-    marginTop: 8,
-    marginBottom: 16,
+    width: "100%",
   },
 });
