@@ -50,10 +50,10 @@ export default function FocusModeScreen() {
         <SimpanInMascot size={90} />
         <Text style={[styles.emptyTitle, { color: "#FFFFFF" }]}>Semua simpanan rapi!</Text>
         <Text style={[styles.emptySub, { color: "#A09D95" }]}>
-          Tidak ada simpanan yang menunggu untuk ditinjau saat ini.
+          Semua link sudah ditinjau. Santai dulu!
         </Text>
         <NeoButton variant="yellow" size="lg" onPress={() => safeBack(router, "/home")}>
-          Kembali ke Beranda
+          Balik ke Beranda
         </NeoButton>
       </SafeAreaView>
     );
@@ -68,10 +68,10 @@ export default function FocusModeScreen() {
           <Check size={48} color="#FFFFFF" strokeWidth={3} />
         </View>
         <Text style={[styles.completedTitle, { color: "#FFFFFF" }]}>
-          Semua sudah kamu tinjau!
+          Keren, sudah beres semua!
         </Text>
         <Text style={[styles.completedSub, { color: "#A09D95" }]}>
-          Kerja bagus! Kamu telah meninjau {queue.length} simpanan di Mode Fokus.
+          {queue.length} link selesai kamu rapikan di Mode Fokus.
         </Text>
         <NeoButton
           variant="yellow"
@@ -84,7 +84,7 @@ export default function FocusModeScreen() {
             safeBack(router, "/home");
           }}
         >
-          Selesai & Simpan Progres
+          Selesai
         </NeoButton>
       </SafeAreaView>
     );
