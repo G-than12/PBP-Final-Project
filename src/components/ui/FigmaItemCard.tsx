@@ -1,12 +1,13 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
-import { Pin } from "lucide-react-native";
+import { Pin, Clock } from "lucide-react-native";
 import { SavedItem } from "../../types/models";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { LinkThumbnail } from "./LinkThumbnail";
 import { PlatformLogo } from "./PlatformLogo";
+import { getDeadlineStatus } from "../../utils/deadlineNumberDetector";
 
 export interface ItemLayoutRect {
   x: number;
@@ -27,6 +28,11 @@ export function FigmaItemCard({ item, onPress, onLongPress }: FigmaItemCardProps
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
   const collections = useSimpanInStore((state) => state.collections);
   const collection = collections.find((c) => c.id === item.collectionId);
+
+  const deadlineInfo = React.useMemo(() => {
+    if (!item.deadline) return null;
+    return getDeadlineStatus(item.deadline);
+  }, [item.deadline]);
 
   const handlePress = () => {
     Haptics.selectionAsync();
@@ -100,6 +106,23 @@ export function FigmaItemCard({ item, onPress, onLongPress }: FigmaItemCardProps
           >
             <Text style={styles.collectionPillText} numberOfLines={1}>
               {collection.name}
+            </Text>
+          </View>
+        )}
+
+        {/* Deadline Badge at bottom-right */}
+        {deadlineInfo && (
+          <View
+            style={[
+              styles.deadlinePill,
+              deadlineInfo.urgency === "urgent" && styles.deadlinePillUrgent,
+              deadlineInfo.urgency === "warning" && styles.deadlinePillWarning,
+              deadlineInfo.urgency === "passed" && styles.deadlinePillPassed,
+            ]}
+          >
+            <Clock size={8} color="#000000" strokeWidth={2.8} />
+            <Text style={styles.deadlinePillText} numberOfLines={1}>
+              {deadlineInfo.badgeLabel}
             </Text>
           </View>
         )}
@@ -192,7 +215,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 7,
     paddingVertical: 2,
-    maxWidth: "85%",
+    maxWidth: "55%",
     shadowColor: "#000000",
     shadowOffset: { width: 1.5, height: 1.5 },
     shadowOpacity: 1,
@@ -201,6 +224,39 @@ const styles = StyleSheet.create({
   },
   collectionPillText: {
     fontSize: 9,
+    fontWeight: "900",
+    color: "#000000",
+  },
+  deadlinePill: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 1.5, height: 1.5 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  deadlinePillUrgent: {
+    backgroundColor: "#FF6B6B",
+  },
+  deadlinePillWarning: {
+    backgroundColor: "#F7CB54",
+  },
+  deadlinePillPassed: {
+    backgroundColor: "#CBD5E1",
+  },
+  deadlinePillText: {
+    fontSize: 8.5,
     fontWeight: "900",
     color: "#000000",
   },
