@@ -128,12 +128,12 @@ export default function CloudSyncScreen() {
               <Text style={styles.heroTitle}>
                 {cloudSyncEnabled
                   ? "Sinkronisasi Aktif"
-                  : "Mode Lokal Mandiri (Local-First)"}
+                  : "Offline & Aman di HP"}
               </Text>
               <Text style={styles.heroSubtitle}>
                 {cloudSyncEnabled
-                  ? "Data Anda disinkronkan secara aman dengan enkripsi ujung ke ujung."
-                  : "Semua tautan dan koleksi tersimpan aman di penyimpanan internal perangkat Anda."}
+                  ? "Data disinkronkan secara aman."
+                  : "Semua koleksi dan link tersimpan di memorimu tanpa perlu internet."}
               </Text>
             </View>
           </View>
@@ -199,7 +199,7 @@ export default function CloudSyncScreen() {
         {/* Local-First Architecture Advantages */}
         <View style={styles.section}>
           <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>
-            KEUNGGULAN ARSITEKTUR SIMPANIN
+            KEUNGGULAN SIMPANIN
           </Text>
 
           <NeoCard color={theme.card} style={styles.featureItem}>
@@ -208,11 +208,10 @@ export default function CloudSyncScreen() {
             </View>
             <View style={styles.featureTextCol}>
               <Text style={[styles.featureTitle, { color: theme.text }]}>
-                100% Cepat & Offline-Ready
+                Cepat & Siap Offline
               </Text>
               <Text style={[styles.featureDesc, { color: theme.textMuted }]}>
-                Aplikasi langsung terbuka instan. Anda dapat membaca catatan, menyortir
-                koleksi, dan meninjau tautan di mana saja tanpa sinyal.
+                Buka aplikasi langsung jalan tanpa loading. Baca catatan dan atur link di mana pun, bahkan tanpa sinyal.
               </Text>
             </View>
           </NeoCard>
@@ -223,11 +222,10 @@ export default function CloudSyncScreen() {
             </View>
             <View style={styles.featureTextCol}>
               <Text style={[styles.featureTitle, { color: theme.text }]}>
-                Privasi Tanpa Kompromi
+                Privasi Terjaga
               </Text>
               <Text style={[styles.featureDesc, { color: theme.textMuted }]}>
-                Tautan pribadi dan catatan riset Anda adalah milik Anda sepenuhnya. Tidak
-                ada iklan pihak ketiga atau pelacakan profil pengguna.
+                Link dan catatanmu 100% milikmu. Bebas iklan dan tanpa pelacak pengguna.
               </Text>
             </View>
           </NeoCard>
@@ -238,11 +236,10 @@ export default function CloudSyncScreen() {
             </View>
             <View style={styles.featureTextCol}>
               <Text style={[styles.featureTitle, { color: theme.text }]}>
-                Cadangan Mandiri & Portabilitas
+                Bebas Dipindah
               </Text>
               <Text style={[styles.featureDesc, { color: theme.textMuted }]}>
-                Anda selalu memegang kendali. Anda dapat mengekspor seluruh koleksi ke
-                format JSON kapan saja dari menu Cadangan & Pemulihan.
+                Datamu bisa diekspor ke file JSON kapan saja dan dipindah ke HP lain dengan mudah.
               </Text>
             </View>
           </NeoCard>
