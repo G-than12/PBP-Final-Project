@@ -35,7 +35,7 @@ const TUTORIAL_STEPS = [
     badgeColor: "#F7CB54",
     title: "Temukan Konten Favorit",
     description:
-      "Buka aplikasi media sosial apa pun seperti Instagram Reels, TikTok, Pinterest, Twitter/X, YouTube, atau peramban Chrome.",
+      "Buka aplikasi media sosial apa pun seperti Instagram Reels, TikTok, Threads, Pinterest, Twitter/X, YouTube, atau peramban Chrome.",
     icon: Compass,
   },
   {
@@ -43,23 +43,23 @@ const TUTORIAL_STEPS = [
     badgeColor: "#FF8C79",
     title: "Ketuk Tombol Bagikan (Share)",
     description:
-      "Cari ikon pesawat kertas pada Instagram, panah melengkung di TikTok, atau menu 'Bagikan' di browser pilihan Anda.",
+      "Cari ikon pesawat kertas pada Instagram, panah melengkung di TikTok, atau tombol menu 'Bagikan' di browser pilihan Anda.",
     icon: Share2,
   },
   {
     step: "3",
     badgeColor: "#8FC9FF",
-    title: "Salin Tautan (Copy Link)",
+    title: "Dua Cara Simpan Cepat",
     description:
-      "Pilih 'Salin Tautan' (Copy Link) dari menu bagikan sistem operasi ponsel Anda ke papan klip (clipboard).",
+      "Metode 1 (Langsung): Pilih SimpanIn di menu lembar bagikan sistem.\nMetode 2 (Papan Klip): Pilih 'Salin Tautan', lalu buka SimpanIn. Tautan akan otomatis terdeteksi tanpa perlu mengetik!",
     icon: Copy,
   },
   {
     step: "4",
     badgeColor: "#A6E3D1",
-    title: "Simpan & Kategorikan di SimpanIn",
+    title: "Pilih Koleksi & Kembali Otomatis",
     description:
-      "Buka aplikasi SimpanIn. Tautan akan terdeteksi otomatis! Pilih koleksi, tambahkan tag atau catatan penting, lalu simpan.",
+      "Pilih koleksi yang sesuai atau buat folder baru dalam hitungan detik. Setelah tersimpan, Anda dapat langsung kembali ke aplikasi asal hanya dengan satu ketukan.",
     icon: FolderPlus,
   },
 ];
