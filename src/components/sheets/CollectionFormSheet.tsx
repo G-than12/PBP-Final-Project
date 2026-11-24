@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 28,
+    paddingBottom: 64,
   },
   inputGroup: {
     marginBottom: 16,

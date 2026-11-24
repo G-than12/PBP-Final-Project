@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -77,6 +77,7 @@ function formatClockTime(timestamp: number): string {
 
 export default function CalendarScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef<any>(null);
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
@@ -332,21 +333,22 @@ export default function CalendarScreen() {
         )}
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Clean Instagram Archive Switcher Tabs: Kalender vs Grid */}
+      {/* Clean Instagram Archive Switcher Tabs: Kalender vs Grid (Fixed, Zero Layout Shift) */}
+      <View style={styles.switcherContainer}>
         <View style={styles.igViewSwitcher}>
           <TouchableOpacity
+            activeOpacity={0.85}
             style={[
               styles.igSwitchTab,
               mainView === "calendar" && styles.igSwitchTabActive,
               { backgroundColor: mainView === "calendar" ? "#F7CB54" : theme.card },
             ]}
             onPress={() => {
-              Haptics.selectionAsync();
-              setMainView("calendar");
+              if (mainView !== "calendar") {
+                Haptics.selectionAsync();
+                setMainView("calendar");
+                scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+              }
             }}
           >
             <CalendarIcon size={15} color="#000000" />
@@ -354,14 +356,18 @@ export default function CalendarScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            activeOpacity={0.85}
             style={[
               styles.igSwitchTab,
               mainView === "grid" && styles.igSwitchTabActive,
               { backgroundColor: mainView === "grid" ? "#F7CB54" : theme.card },
             ]}
             onPress={() => {
-              Haptics.selectionAsync();
-              setMainView("grid");
+              if (mainView !== "grid") {
+                Haptics.selectionAsync();
+                setMainView("grid");
+                scrollViewRef.current?.scrollTo({ y: 0, animated: false });
+              }
             }}
           >
             <LayoutGrid size={15} color="#000000" />
@@ -370,7 +376,13 @@ export default function CalendarScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+      </View>
 
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* ========================================================= */}
         {/* VIEW 1: KALENDER ARSIP (INSTAGRAM ARCHIVE CALENDAR STYLE) */}
         {/* ========================================================= */}
@@ -806,18 +818,25 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
   },
+  switcherContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 48,
   },
   // Instagram Archive Tabs: Single Clean Row with Good Breathing Room
   igViewSwitcher: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 16,
   },
   igSwitchTab: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1219,7 +1238,7 @@ const styles = StyleSheet.create({
   },
   // Grid Media View (Instagram 3-Column Profile/Archive Feed)
   gridSectionContainer: {
-    marginTop: 4,
+    marginTop: 0,
   },
   gridSectionHeader: {
     marginBottom: 14,

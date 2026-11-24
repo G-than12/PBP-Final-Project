@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 48,
+    paddingBottom: 84,
   },
   inputGroup: {
     marginBottom: 16,
@@ -1034,8 +1034,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   submitBtn: {
-    marginTop: 8,
-    marginBottom: 28,
+    marginTop: 12,
+    marginBottom: 36,
   },
   detectedBox: {
     flexDirection: "row",

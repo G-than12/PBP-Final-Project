@@ -579,19 +579,19 @@ export default function HomeScreen() {
             </View>
 
             {deadlineItems.length === 1 ? (
-              <FigmaItemCard
-                item={deadlineItems[0]}
-                layout="horizontal"
-                showCollection={true}
-                onPress={() => router.push(`/link/${deadlineItems[0].id}`)}
-                onLongPress={(rect) => {
-                  setItemActionTarget({
-                    item: deadlineItems[0],
-                    rect,
-                    layout: "horizontal",
-                  });
-                }}
-              />
+              <View style={styles.gridItem}>
+                <FigmaItemCard
+                  item={deadlineItems[0]}
+                  showCollection={true}
+                  onPress={() => router.push(`/link/${deadlineItems[0].id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item: deadlineItems[0],
+                      rect,
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <ScrollView
                 horizontal
@@ -631,19 +631,19 @@ export default function HomeScreen() {
             </View>
 
             {pinnedItems.length === 1 ? (
-              <FigmaItemCard
-                item={pinnedItems[0]}
-                layout="horizontal"
-                showCollection={true}
-                onPress={() => router.push(`/link/${pinnedItems[0].id}`)}
-                onLongPress={(rect) => {
-                  setItemActionTarget({
-                    item: pinnedItems[0],
-                    rect,
-                    layout: "horizontal",
-                  });
-                }}
-              />
+              <View style={styles.gridItem}>
+                <FigmaItemCard
+                  item={pinnedItems[0]}
+                  showCollection={true}
+                  onPress={() => router.push(`/link/${pinnedItems[0].id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item: pinnedItems[0],
+                      rect,
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <ScrollView
                 horizontal
@@ -690,19 +690,19 @@ export default function HomeScreen() {
             </View>
 
             {recentItems.length === 1 ? (
-              <FigmaItemCard
-                item={recentItems[0]}
-                layout="horizontal"
-                showCollection={true}
-                onPress={() => router.push(`/link/${recentItems[0].id}`)}
-                onLongPress={(rect) => {
-                  setItemActionTarget({
-                    item: recentItems[0],
-                    rect,
-                    layout: "horizontal",
-                  });
-                }}
-              />
+              <View style={styles.gridItem}>
+                <FigmaItemCard
+                  item={recentItems[0]}
+                  showCollection={true}
+                  onPress={() => router.push(`/link/${recentItems[0].id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item: recentItems[0],
+                      rect,
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <ScrollView
                 horizontal

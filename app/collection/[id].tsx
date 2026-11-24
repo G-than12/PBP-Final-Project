@@ -583,22 +583,6 @@ export default function CollectionScreen() {
               </TouchableOpacity>
             )}
           </View>
-        ) : displayedItems.length === 1 ? (
-          <View style={styles.singleItemWrap}>
-            <FigmaItemCard
-              item={displayedItems[0]}
-              layout="horizontal"
-              showCollection={false}
-              onPress={() => router.push(`/link/${displayedItems[0].id}`)}
-              onLongPress={(rect) => {
-                setItemActionTarget({
-                  item: displayedItems[0],
-                  rect,
-                  layout: "horizontal",
-                });
-              }}
-            />
-          </View>
         ) : (
           <View style={styles.itemGrid}>
             {displayedItems.map((item, index) => (

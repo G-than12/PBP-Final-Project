@@ -34,8 +34,8 @@ export function NeoBottomSheet({
   // Ensure plenty of bottom padding for both physical devices and browser simulator extensions
   const safeBottomPadding = Math.max(
     insets.bottom,
-    Platform.OS === "web" ? 38 : 20
-  ) + 16;
+    Platform.OS === "web" ? 38 : 24
+  ) + 20;
 
   return (
     <Modal
@@ -113,11 +113,9 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2.5,
     borderRightWidth: 2.5,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 40 : 28,
     paddingTop: 12,
-    maxHeight: Platform.OS === "web" ? "88vh" : "90%",
+    maxHeight: Platform.OS === "web" ? "88vh" : "92%",
     minHeight: 180,
-    overflow: "hidden",
   },
   grabBar: {
     width: 40,
