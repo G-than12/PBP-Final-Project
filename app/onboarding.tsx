@@ -677,15 +677,17 @@ export default function OnboardingScreen() {
         {/* SLIDE 2: Meet Mascot Art */}
         {slide.art === "meet" && (
           <View style={styles.meetWrapper}>
-            <View style={styles.meetMascotPos}>
-              <SimpanInMascot size={120} />
-            </View>
-            <View style={styles.foundCard}>
-              <Text style={styles.foundCardCategory}>Sudah ketemu</Text>
-              <Text style={styles.foundCardTitle}>Resep makan malam kilat</Text>
-              <View style={styles.foundCheckRow}>
-                <Check size={18} color="#087E59" strokeWidth={3.5} />
-                <Text style={styles.foundCheckText}>Ketemu!</Text>
+            <View style={styles.foundCardContainer}>
+              <View style={styles.meetMascotPos}>
+                <SimpanInMascot size={88} />
+              </View>
+              <View style={styles.foundCard}>
+                <Text style={styles.foundCardCategory}>Sudah ketemu</Text>
+                <Text style={styles.foundCardTitle}>Resep makan malam kilat</Text>
+                <View style={styles.foundCheckRow}>
+                  <Check size={18} color="#087E59" strokeWidth={3.5} />
+                  <Text style={styles.foundCheckText}>Ketemu!</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1033,17 +1035,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  foundCardContainer: {
+    position: "relative",
+    width: 275,
+    alignItems: "center",
+  },
   meetMascotPos: {
     position: "absolute",
-    top: 15,
-    left: 35,
-    zIndex: 3,
-    transform: [{ rotate: "-6deg" }],
+    top: -46,
+    left: 14,
+    zIndex: 10,
+    transform: [{ rotate: "-8deg" }],
   },
   foundCard: {
-    width: 270,
-    padding: 18,
-    paddingTop: 45,
+    width: 275,
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 18,
     backgroundColor: "#FFFFFF",
     borderWidth: 2,
     borderColor: "#000000",
@@ -1053,7 +1061,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   foundCardCategory: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     color: "#666158",
   },
