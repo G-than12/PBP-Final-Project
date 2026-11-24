@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -51,6 +52,25 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("Ringkasan");
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+
+  const searchFadeAnim = useRef(new Animated.Value(0)).current;
+  const searchSlideAnim = useRef(new Animated.Value(12)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(searchFadeAnim, {
+        toValue: 1,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.spring(searchSlideAnim, {
+        toValue: 0,
+        tension: 80,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Folder Quick Action Modal states on folder long-press
   const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
@@ -210,6 +230,7 @@ export default function SearchScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
+        <Animated.View style={{ opacity: searchFadeAnim, transform: [{ translateY: searchSlideAnim }] }}>
         {/* Figma Pustakamu Signature Yellow Hero Card (SimpanIn.pdf Page 54, 58, 59) */}
         <View style={styles.libraryCard}>
           <View style={styles.libraryCardTop}>
@@ -674,6 +695,7 @@ export default function SearchScreen() {
             )}
           </View>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* Folder Quick Action Modal on Long Press */}

@@ -32,20 +32,22 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: theme.background },
-              animation: "slide_from_right",
+              animation: "default",
+              animationDuration: 280,
             }}
           >
             <Stack.Screen name="index" />
-            <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
-            <Stack.Screen name="home" />
-            <Stack.Screen name="search" options={{ animation: "fade" }} />
-            <Stack.Screen name="focus" options={{ animation: "slide_from_bottom" }} />
-            <Stack.Screen name="collection/[id]" />
-            <Stack.Screen name="link/[id]" />
-            <Stack.Screen name="settings/index" />
-            <Stack.Screen name="settings/cloud-sync" />
-            <Stack.Screen name="settings/backup" />
-            <Stack.Screen name="settings/guide" />
+            <Stack.Screen name="onboarding" options={{ animation: "fade", animationDuration: 250 }} />
+            <Stack.Screen name="home" options={{ animation: "fade", animationDuration: 220 }} />
+            <Stack.Screen name="search" options={{ animation: "fade_from_bottom", animationDuration: 260 }} />
+            <Stack.Screen name="focus" options={{ animation: "slide_from_bottom", animationDuration: 300 }} />
+            <Stack.Screen name="collection/[id]" options={{ animation: "default", animationDuration: 280 }} />
+            <Stack.Screen name="link/[id]" options={{ animation: "default", animationDuration: 280 }} />
+            <Stack.Screen name="calendar" options={{ animation: "default", animationDuration: 280 }} />
+            <Stack.Screen name="settings/index" options={{ animation: "default", animationDuration: 260 }} />
+            <Stack.Screen name="settings/cloud-sync" options={{ animation: "default", animationDuration: 260 }} />
+            <Stack.Screen name="settings/backup" options={{ animation: "default", animationDuration: 260 }} />
+            <Stack.Screen name="settings/guide" options={{ animation: "default", animationDuration: 260 }} />
           </Stack>
         </View>
       </SafeAreaProvider>

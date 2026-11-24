@@ -300,6 +300,7 @@ export default function HomeScreen() {
       <View style={[styles.mainHeader, { borderBottomColor: theme.border }]}>
         {/* Settings button on the left */}
         <TouchableOpacity
+          activeOpacity={0.7}
           style={[
             styles.iconBtn,
             { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" },
@@ -322,6 +323,7 @@ export default function HomeScreen() {
         {/* Right buttons: Folder+ and Search */}
         <View style={styles.headerRightBtns}>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={[
               styles.iconBtn,
               { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" },
@@ -339,6 +341,7 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            activeOpacity={0.7}
             style={[
               styles.iconBtn,
               { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" },
