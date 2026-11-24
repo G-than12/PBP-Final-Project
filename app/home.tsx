@@ -578,22 +578,43 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.folderGrid}>
-              {deadlineItems.map((item, index) => (
-                <View key={`deadline-${item.id}-${index}`} style={styles.gridItem}>
-                  <FigmaItemCard
-                    item={item}
-                    onPress={() => router.push(`/link/${item.id}`)}
-                    onLongPress={(rect) => {
-                      setItemActionTarget({
-                        item,
-                        rect,
-                      });
-                    }}
-                  />
-                </View>
-              ))}
-            </View>
+            {deadlineItems.length === 1 ? (
+              <FigmaItemCard
+                item={deadlineItems[0]}
+                layout="horizontal"
+                showCollection={true}
+                onPress={() => router.push(`/link/${deadlineItems[0].id}`)}
+                onLongPress={(rect) => {
+                  setItemActionTarget({
+                    item: deadlineItems[0],
+                    rect,
+                    layout: "horizontal",
+                  });
+                }}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScrollList}
+              >
+                {deadlineItems.map((item, index) => (
+                  <View key={`deadline-${item.id}-${index}`} style={styles.horizontalItemWrap}>
+                    <FigmaItemCard
+                      item={item}
+                      showCollection={true}
+                      onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
 
@@ -609,22 +630,43 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            <View style={styles.folderGrid}>
-              {pinnedItems.map((item, index) => (
-                <View key={`${item.id}-${index}`} style={styles.gridItem}>
-                  <FigmaItemCard
-                    item={item}
-                    onPress={() => router.push(`/link/${item.id}`)}
-                    onLongPress={(rect) => {
-                      setItemActionTarget({
-                        item,
-                        rect,
-                      });
-                    }}
-                  />
-                </View>
-              ))}
-            </View>
+            {pinnedItems.length === 1 ? (
+              <FigmaItemCard
+                item={pinnedItems[0]}
+                layout="horizontal"
+                showCollection={true}
+                onPress={() => router.push(`/link/${pinnedItems[0].id}`)}
+                onLongPress={(rect) => {
+                  setItemActionTarget({
+                    item: pinnedItems[0],
+                    rect,
+                    layout: "horizontal",
+                  });
+                }}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScrollList}
+              >
+                {pinnedItems.map((item, index) => (
+                  <View key={`${item.id}-${index}`} style={styles.horizontalItemWrap}>
+                    <FigmaItemCard
+                      item={item}
+                      showCollection={true}
+                      onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
 
@@ -647,22 +689,43 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.folderGrid}>
-              {recentItems.map((item, index) => (
-                <View key={`${item.id}-${index}`} style={styles.gridItem}>
-                  <FigmaItemCard
-                    item={item}
-                    onPress={() => router.push(`/link/${item.id}`)}
-                    onLongPress={(rect) => {
-                      setItemActionTarget({
-                        item,
-                        rect,
-                      });
-                    }}
-                  />
-                </View>
-              ))}
-            </View>
+            {recentItems.length === 1 ? (
+              <FigmaItemCard
+                item={recentItems[0]}
+                layout="horizontal"
+                showCollection={true}
+                onPress={() => router.push(`/link/${recentItems[0].id}`)}
+                onLongPress={(rect) => {
+                  setItemActionTarget({
+                    item: recentItems[0],
+                    rect,
+                    layout: "horizontal",
+                  });
+                }}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalScrollList}
+              >
+                {recentItems.map((item, index) => (
+                  <View key={`${item.id}-${index}`} style={styles.horizontalItemWrap}>
+                    <FigmaItemCard
+                      item={item}
+                      showCollection={true}
+                      onPress={() => router.push(`/link/${item.id}`)}
+                      onLongPress={(rect) => {
+                        setItemActionTarget({
+                          item,
+                          rect,
+                        });
+                      }}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
         )}
       </ScrollView>
@@ -1335,6 +1398,15 @@ const styles = StyleSheet.create({
   gridItem: {
     width: "47.5%",
     marginBottom: 18,
+  },
+  horizontalScrollList: {
+    flexDirection: "row",
+    gap: 12,
+    paddingBottom: 10,
+    paddingRight: 6,
+  },
+  horizontalItemWrap: {
+    width: 170,
   },
   detectedBanner: {
     borderWidth: 2,

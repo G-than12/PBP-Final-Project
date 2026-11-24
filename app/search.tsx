@@ -363,22 +363,41 @@ export default function SearchScreen() {
                     <Text style={[styles.sectionEyebrow, { color: theme.textMuted }]}>
                       SIMPANAN TERKAIT ({filteredItems.length})
                     </Text>
-                    <View style={styles.itemGrid}>
-                      {filteredItems.map((item, index) => (
-                        <View key={`${item.id}-${index}`} style={styles.gridHalf}>
-                          <FigmaItemCard
-                            item={item}
-                            onPress={() => router.push(`/link/${item.id}`)}
-                            onLongPress={(rect) => {
-                              setItemActionTarget({
-                                item,
-                                rect,
-                              });
-                            }}
-                          />
-                        </View>
-                      ))}
-                    </View>
+                    {filteredItems.length === 1 ? (
+                      <View style={{ width: "100%", marginBottom: 18 }}>
+                        <FigmaItemCard
+                          item={filteredItems[0]}
+                          layout="horizontal"
+                          showCollection={true}
+                          onPress={() => router.push(`/link/${filteredItems[0].id}`)}
+                          onLongPress={(rect) => {
+                            setItemActionTarget({
+                              item: filteredItems[0],
+                              rect,
+                              layout: "horizontal",
+                            });
+                          }}
+                        />
+                      </View>
+                    ) : (
+                      <View style={styles.itemGrid}>
+                        {filteredItems.map((item, index) => (
+                          <View key={`${item.id}-${index}`} style={styles.gridHalf}>
+                            <FigmaItemCard
+                              item={item}
+                              showCollection={true}
+                              onPress={() => router.push(`/link/${item.id}`)}
+                              onLongPress={(rect) => {
+                                setItemActionTarget({
+                                  item,
+                                  rect,
+                                });
+                              }}
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 )}
 
@@ -485,12 +504,29 @@ export default function SearchScreen() {
                     : "Belum ada tautan yang disimpan."}
                 </Text>
               </View>
+            ) : filteredItems.length === 1 ? (
+              <View style={{ width: "100%", marginBottom: 18 }}>
+                <FigmaItemCard
+                  item={filteredItems[0]}
+                  layout="horizontal"
+                  showCollection={true}
+                  onPress={() => router.push(`/link/${filteredItems[0].id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item: filteredItems[0],
+                      rect,
+                      layout: "horizontal",
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <View style={styles.itemGrid}>
                 {filteredItems.map((item, index) => (
                   <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                     <FigmaItemCard
                       item={item}
+                      showCollection={true}
                       onPress={() => router.push(`/link/${item.id}`)}
                       onLongPress={(rect) => {
                         setItemActionTarget({
@@ -537,12 +573,29 @@ export default function SearchScreen() {
                     : "Sematkan tautan penting untuk melihatnya dengan cepat di sini."}
                 </Text>
               </View>
+            ) : pinnedItems.length === 1 ? (
+              <View style={{ width: "100%", marginBottom: 18 }}>
+                <FigmaItemCard
+                  item={pinnedItems[0]}
+                  layout="horizontal"
+                  showCollection={true}
+                  onPress={() => router.push(`/link/${pinnedItems[0].id}`)}
+                  onLongPress={(rect) => {
+                    setItemActionTarget({
+                      item: pinnedItems[0],
+                      rect,
+                      layout: "horizontal",
+                    });
+                  }}
+                />
+              </View>
             ) : (
               <View style={styles.itemGrid}>
                 {pinnedItems.map((item, index) => (
                   <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                     <FigmaItemCard
                       item={item}
+                      showCollection={true}
                       onPress={() => router.push(`/link/${item.id}`)}
                       onLongPress={(rect) => {
                         setItemActionTarget({
