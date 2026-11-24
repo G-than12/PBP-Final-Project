@@ -492,11 +492,11 @@ export default function CalendarScreen() {
                         {cell.day}
                       </Text>
 
-                      {/* If multiple items saved on this day: +N counter */}
-                      {hasSaved && cellSaved.length > 1 && (
+                      {/* Saved items count badge for this day */}
+                      {hasSaved && (
                         <View style={styles.cellMultipleBadge}>
                           <Text style={styles.cellMultipleBadgeText}>
-                            +{cellSaved.length - 1}
+                            {cellSaved.length}
                           </Text>
                         </View>
                       )}
@@ -976,13 +976,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#000000",
     borderRadius: 4,
+    minWidth: 14,
+    height: 14,
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 2.5,
-    paddingVertical: 0.5,
   },
   cellMultipleBadgeText: {
     fontSize: 8.5,
     fontWeight: "900",
     color: "#000000",
+    textAlign: "center",
   },
   cellDeadlineDot: {
     position: "absolute",
