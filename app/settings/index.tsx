@@ -175,7 +175,7 @@ export default function SettingsMainScreen() {
           <NeoCard color={theme.card} style={styles.statsCard}>
             <View style={styles.statsRow}>
               <View style={styles.statCol}>
-                <Bookmark size={18} color="#000000" />
+                <Bookmark size={18} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {totalLinks}
                 </Text>
@@ -187,7 +187,7 @@ export default function SettingsMainScreen() {
               <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
 
               <View style={styles.statCol}>
-                <FolderTree size={18} color="#000000" />
+                <FolderTree size={18} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {totalCollections}
                 </Text>
@@ -199,7 +199,7 @@ export default function SettingsMainScreen() {
               <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
 
               <View style={styles.statCol}>
-                <Pin size={18} color="#000000" />
+                <Pin size={18} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {pinnedLinks}
                 </Text>
@@ -211,7 +211,7 @@ export default function SettingsMainScreen() {
               <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
 
               <View style={styles.statCol}>
-                <CheckCircle size={18} color="#000000" />
+                <CheckCircle size={18} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {reviewedLinks}
                 </Text>
@@ -276,7 +276,16 @@ export default function SettingsMainScreen() {
                   },
                 ]}
               >
-                <Bell size={20} color="#000000" />
+                <Bell
+                  size={20}
+                  color={
+                    notificationsEnabled
+                      ? "#000000"
+                      : isDark
+                      ? "#F7CB54"
+                      : "#000000"
+                  }
+                />
               </View>
               <View style={styles.rowTextCol}>
                 <Text style={[styles.rowTitle, { color: theme.text }]}>

@@ -159,13 +159,13 @@ export default function BackupScreen() {
             {/* Quick summary badges */}
             <View style={styles.badgeRow}>
               <View style={[styles.badgeItem, { backgroundColor: theme.cardSecondary }]}>
-                <FolderTree size={14} color="#000000" />
+                <FolderTree size={14} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.badgeText, { color: theme.text }]}>
                   {collections.length} Koleksi
                 </Text>
               </View>
               <View style={[styles.badgeItem, { backgroundColor: theme.cardSecondary }]}>
-                <Bookmark size={14} color="#000000" />
+                <Bookmark size={14} color={isDark ? "#F7CB54" : "#000000"} />
                 <Text style={[styles.badgeText, { color: theme.text }]}>
                   {items.length} Tautan
                 </Text>

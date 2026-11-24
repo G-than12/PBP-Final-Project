@@ -922,7 +922,12 @@ export default function CollectionScreen() {
             },
           ]}
         >
-          <View style={styles.sortDropdownHead}>
+          <View
+            style={[
+              styles.sortDropdownHead,
+              { borderBottomColor: isDark ? "#4A4640" : "#EAE6DE" },
+            ]}
+          >
             <Text style={[styles.sortDropdownHeadText, { color: theme.textMuted }]}>
               URUTKAN SIMPANAN
             </Text>
@@ -955,7 +960,10 @@ export default function CollectionScreen() {
                 activeOpacity={0.75}
                 style={[
                   styles.sortDropdownRow,
-                  isSelected && styles.sortDropdownRowSelected,
+                  isSelected &&
+                    (isDark
+                      ? styles.sortDropdownRowSelectedDark
+                      : styles.sortDropdownRowSelected),
                   idx < arr.length - 1 && styles.sortDropdownRowBorder,
                   { borderBottomColor: isDark ? "#4A4640" : "#F0ECE1" },
                 ]}
@@ -969,17 +977,48 @@ export default function CollectionScreen() {
                   <View
                     style={[
                       styles.sortIconCircle,
-                      isSelected && styles.sortIconCircleSelected,
+                      isSelected
+                        ? styles.sortIconCircleSelected
+                        : {
+                            backgroundColor: isDark ? "#33302A" : "#F5F0E8",
+                            borderColor: isDark ? "#4A4640" : "#000000",
+                          },
                     ]}
                   >
-                    {opt.icon}
+                    {React.cloneElement(opt.icon, {
+                      color: isSelected
+                        ? "#000000"
+                        : isDark
+                        ? "#F7CB54"
+                        : "#000000",
+                    })}
                   </View>
                   <View>
-                    <Text style={[styles.sortRowLabel, { color: theme.text }]}>
+                    <Text
+                      style={[
+                        styles.sortRowLabel,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? "#F7CB54"
+                              : "#000000"
+                            : theme.text,
+                        },
+                      ]}
+                    >
                       {opt.label}
                     </Text>
                     <Text
-                      style={[styles.sortRowDesc, { color: theme.textMuted }]}
+                      style={[
+                        styles.sortRowDesc,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? "#DDD6CA"
+                              : "#5A544A"
+                            : theme.textMuted,
+                        },
+                      ]}
                     >
                       {opt.desc}
                     </Text>
@@ -1396,6 +1435,9 @@ const styles = StyleSheet.create({
   },
   sortDropdownRowSelected: {
     backgroundColor: "#FFF9E6",
+  },
+  sortDropdownRowSelectedDark: {
+    backgroundColor: "#363022",
   },
   sortDropdownRowBorder: {
     borderBottomWidth: 1,
