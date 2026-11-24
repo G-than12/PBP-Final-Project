@@ -91,7 +91,7 @@ export default function CloudSyncScreen() {
         <TouchableOpacity
           style={[
             styles.backBtn,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" },
           ]}
           onPress={() => {
             Haptics.selectionAsync();
@@ -273,10 +273,15 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   headerTitle: {
     fontSize: 18,

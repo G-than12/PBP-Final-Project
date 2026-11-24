@@ -34,7 +34,6 @@ import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { NeoCard } from "../../src/components/ui/NeoCard";
 import { SimpanInMascot } from "../../src/components/ui/SimpanInMascot";
 import { NeoConfirmModal } from "../../src/components/ui/NeoConfirmModal";
-import { HomeTitleEditorSheet } from "../../src/components/sheets/HomeTitleEditorSheet";
 import { safeBack } from "../../src/utils/navigation";
 import {
   requestNotificationPermission,
@@ -68,7 +67,6 @@ export default function SettingsMainScreen() {
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDemoConfirm, setShowDemoConfirm] = useState(false);
-  const [showTitleEditor, setShowTitleEditor] = useState(false);
 
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
@@ -136,7 +134,7 @@ export default function SettingsMainScreen() {
         <TouchableOpacity
           style={[
             styles.backBtn,
-            { backgroundColor: theme.surface, borderColor: theme.border },
+            { backgroundColor: theme.surface, borderColor: isDark ? "#4A4640" : "#000000" },
           ]}
           onPress={() => {
             Haptics.selectionAsync();
@@ -154,16 +152,16 @@ export default function SettingsMainScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Unlocked & Academic Free Rule Banner */}
+        {/* App Identity Banner */}
         <NeoCard color="#F7CB54" style={styles.bannerCard}>
           <View style={styles.bannerContent}>
             <View style={styles.bannerIconBadge}>
-              <Sparkles size={22} color="#000000" strokeWidth={2.5} />
+              <SimpanInMascot small size={32} />
             </View>
             <View style={styles.bannerTextContainer}>
-              <Text style={styles.bannerTitle}>Gratis & Tanpa Batas</Text>
+              <Text style={styles.bannerTitle}>SimpanIn</Text>
               <Text style={styles.bannerSubtitle}>
-                Simpan link, buat folder bertingkat, dan nikmati semua fitur sepuasmu.
+                Ruang simpan personal yang rapi, privat, dan bebas distraksi.
               </Text>
             </View>
           </View>
@@ -299,37 +297,7 @@ export default function SettingsMainScreen() {
             />
           </NeoCard>
 
-          {/* Edit Home Title */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setShowTitleEditor(true);
-            }}
-            style={styles.touchableCard}
-          >
-            <NeoCard color={theme.card} style={styles.settingRowCard}>
-              <View style={styles.rowLeft}>
-                <View
-                  style={[styles.iconBox, { backgroundColor: "#FF8C79" }]}
-                >
-                  <Type size={20} color="#000000" />
-                </View>
-                <View style={styles.rowTextCol}>
-                  <Text style={[styles.rowTitle, { color: theme.text }]}>
-                    Judul Beranda
-                  </Text>
-                  <Text
-                    style={[styles.rowSubtitle, { color: theme.textMuted }]}
-                    numberOfLines={1}
-                  >
-                    "{homeTitle[0]} {homeTitle[1]}"
-                  </Text>
-                </View>
-              </View>
-              <ChevronRight size={18} color={theme.textMuted} />
-            </NeoCard>
-          </TouchableOpacity>
+
         </View>
 
         {/* Data, Cloud & Panduan */}
@@ -538,13 +506,7 @@ export default function SettingsMainScreen() {
         </View>
       </ScrollView>
 
-      {/* Title Editor Sheet */}
-      <HomeTitleEditorSheet
-        visible={showTitleEditor}
-        currentTitle={homeTitle}
-        onClose={() => setShowTitleEditor(false)}
-        onSave={(newTitle) => setHomeTitle(newTitle)}
-      />
+
 
       {/* Reset Confirmation Modal */}
       <NeoConfirmModal
@@ -587,10 +549,15 @@ const styles = StyleSheet.create({
   backBtn: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
   },
   headerTitle: {
     fontSize: 18,

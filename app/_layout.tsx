@@ -38,7 +38,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
             <Stack.Screen name="home" />
-            <Stack.Screen name="search" />
+            <Stack.Screen name="search" options={{ animation: "fade" }} />
             <Stack.Screen name="focus" options={{ animation: "slide_from_bottom" }} />
             <Stack.Screen name="collection/[id]" />
             <Stack.Screen name="link/[id]" />
@@ -56,12 +56,14 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
+    overflow: "hidden",
   },
   appWrapper: {
     flex: 1,
     width: "100%",
     maxWidth: Platform.OS === "web" ? 540 : undefined,
     alignSelf: "center",
+    overflow: "hidden",
     ...(Platform.OS === "web"
       ? {
           shadowColor: "#000000",
