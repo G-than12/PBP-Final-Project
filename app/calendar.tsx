@@ -341,7 +341,10 @@ export default function CalendarScreen() {
             style={[
               styles.igSwitchTab,
               mainView === "calendar" && styles.igSwitchTabActive,
-              { backgroundColor: mainView === "calendar" ? "#F7CB54" : theme.card },
+              {
+                backgroundColor: mainView === "calendar" ? "#F7CB54" : theme.card,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
             ]}
             onPress={() => {
               if (mainView !== "calendar") {
@@ -351,8 +354,18 @@ export default function CalendarScreen() {
               }
             }}
           >
-            <CalendarIcon size={15} color="#000000" />
-            <Text style={styles.igSwitchTabText}>Kalender Arsip</Text>
+            <CalendarIcon
+              size={15}
+              color={mainView === "calendar" ? "#000000" : theme.text}
+            />
+            <Text
+              style={[
+                styles.igSwitchTabText,
+                { color: mainView === "calendar" ? "#000000" : theme.text },
+              ]}
+            >
+              Kalender Arsip
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -360,7 +373,10 @@ export default function CalendarScreen() {
             style={[
               styles.igSwitchTab,
               mainView === "grid" && styles.igSwitchTabActive,
-              { backgroundColor: mainView === "grid" ? "#F7CB54" : theme.card },
+              {
+                backgroundColor: mainView === "grid" ? "#F7CB54" : theme.card,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
             ]}
             onPress={() => {
               if (mainView !== "grid") {
@@ -370,8 +386,16 @@ export default function CalendarScreen() {
               }
             }}
           >
-            <LayoutGrid size={15} color="#000000" />
-            <Text style={styles.igSwitchTabText}>
+            <LayoutGrid
+              size={15}
+              color={mainView === "grid" ? "#000000" : theme.text}
+            />
+            <Text
+              style={[
+                styles.igSwitchTabText,
+                { color: mainView === "grid" ? "#000000" : theme.text },
+              ]}
+            >
               Grid Semua Arsip ({items.length})
             </Text>
           </TouchableOpacity>
@@ -393,7 +417,13 @@ export default function CalendarScreen() {
               {/* Month Navigation Header */}
               <View style={styles.monthNavRow}>
                 <TouchableOpacity
-                  style={styles.monthArrowBtn}
+                  style={[
+                    styles.monthArrowBtn,
+                    {
+                      backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
                   onPress={prevMonth}
                   accessibilityLabel="Bulan Sebelumnya"
                 >
@@ -410,7 +440,13 @@ export default function CalendarScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={styles.monthArrowBtn}
+                  style={[
+                    styles.monthArrowBtn,
+                    {
+                      backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
                   onPress={nextMonth}
                   accessibilityLabel="Bulan Berikutnya"
                 >
@@ -419,7 +455,12 @@ export default function CalendarScreen() {
               </View>
 
               {/* Days of Week Header */}
-              <View style={styles.dayLabelsRow}>
+              <View
+                style={[
+                  styles.dayLabelsRow,
+                  { borderBottomColor: isDark ? "#3A3630" : "#EAE6DE" },
+                ]}
+              >
                 {DAY_LABELS.map((label, idx) => (
                   <View key={label} style={styles.dayLabelCell}>
                     <Text
@@ -460,9 +501,20 @@ export default function CalendarScreen() {
                       }}
                       style={[
                         styles.archiveGridCell,
-                        isToday && !isSelected && styles.archiveGridCellToday,
+                        isToday &&
+                          !isSelected && [
+                            styles.archiveGridCellToday,
+                            {
+                              backgroundColor: isDark ? "#383120" : "#FFF9E6",
+                              borderColor: isDark ? "#7A6830" : "#000000",
+                            },
+                          ],
                         isSelected && styles.archiveGridCellSelected,
-                        hasSaved && !isSelected && styles.archiveGridCellHasSaved,
+                        hasSaved &&
+                          !isSelected && [
+                            styles.archiveGridCellHasSaved,
+                            { borderColor: isDark ? "#4A4640" : "#000000" },
+                          ],
                       ]}
                     >
                       {/* Media Preview on Days with Saved Posts */}
@@ -475,7 +527,14 @@ export default function CalendarScreen() {
                               resizeMode="cover"
                             />
                           ) : (
-                            <View style={styles.cellPlatformFallback}>
+                            <View
+                              style={[
+                                styles.cellPlatformFallback,
+                                {
+                                  backgroundColor: isDark ? "#2A2724" : "#F0EAE1",
+                                },
+                              ]}
+                            >
                               <PlatformLogo platform={firstSavedItem.source} size={14} />
                             </View>
                           )}
@@ -530,7 +589,12 @@ export default function CalendarScreen() {
               </View>
 
               {/* Instagram Archive Legend */}
-              <View style={styles.legendRow}>
+              <View
+                style={[
+                  styles.legendRow,
+                  { borderTopColor: isDark ? "#3A3630" : "#EAE6DE" },
+                ]}
+              >
                 <View style={styles.legendItem}>
                   <View style={styles.legendMiniThumb}>
                     <Bookmark size={9} color="#000000" />
@@ -587,7 +651,10 @@ export default function CalendarScreen() {
                         }}
                         style={[
                           styles.archiveItemCard,
-                          { backgroundColor: theme.card },
+                          {
+                            backgroundColor: theme.card,
+                            borderColor: isDark ? "#4A4640" : "#000000",
+                          },
                         ]}
                       >
                         {/* Media Thumbnail */}
@@ -596,9 +663,20 @@ export default function CalendarScreen() {
                             image={item.image}
                             tags={item.tags}
                             symbolSize="sm"
-                            style={styles.archiveThumbnail}
+                            style={[
+                              styles.archiveThumbnail,
+                              { borderColor: isDark ? "#4A4640" : "#000000" },
+                            ]}
                           />
-                          <View style={styles.platformBadgeFloating}>
+                          <View
+                            style={[
+                              styles.platformBadgeFloating,
+                              {
+                                backgroundColor: isDark ? "#2A2724" : "#FFFFFF",
+                                borderColor: isDark ? "#4A4640" : "#000000",
+                              },
+                            ]}
+                          >
                             <PlatformLogo platform={item.source} size={14} />
                           </View>
                         </View>
@@ -674,9 +752,25 @@ export default function CalendarScreen() {
                   })}
                 </View>
               ) : (
-                <View style={[styles.emptyCard, { backgroundColor: theme.card }]}>
-                  <View style={styles.emptyIconCircle}>
-                    <Inbox size={26} color="#666158" strokeWidth={2} />
+                <View
+                  style={[
+                    styles.emptyCard,
+                    {
+                      backgroundColor: theme.card,
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.emptyIconCircle,
+                      {
+                        backgroundColor: isDark ? "#2A2724" : "#F5F0E8",
+                        borderColor: isDark ? "#4A4640" : "#000000",
+                      },
+                    ]}
+                  >
+                    <Inbox size={26} color={isDark ? "#8A857D" : "#666158"} strokeWidth={2} />
                   </View>
                   <Text style={[styles.emptyTitle, { color: theme.text }]}>
                     Tidak Ada Postingan di Tanggal Ini
@@ -720,10 +814,21 @@ export default function CalendarScreen() {
                       image={item.image}
                       tags={item.tags}
                       symbolSize="sm"
-                      style={styles.mediaGridThumbnail}
+                      style={[
+                        styles.mediaGridThumbnail,
+                        { borderColor: isDark ? "#4A4640" : "#000000" },
+                      ]}
                     >
                       {/* Floating Platform Icon */}
-                      <View style={styles.mediaGridPlatformBadge}>
+                      <View
+                        style={[
+                          styles.mediaGridPlatformBadge,
+                          {
+                            backgroundColor: isDark ? "#2A2724" : "#FFFFFF",
+                            borderColor: isDark ? "#4A4640" : "#000000",
+                          },
+                        ]}
+                      >
                         <PlatformLogo platform={item.source} size={13} />
                       </View>
 
@@ -745,9 +850,25 @@ export default function CalendarScreen() {
                 ))}
               </View>
             ) : (
-              <View style={[styles.emptyCard, { backgroundColor: theme.card }]}>
-                <View style={styles.emptyIconCircle}>
-                  <Inbox size={26} color="#666158" strokeWidth={2} />
+              <View
+                style={[
+                  styles.emptyCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.emptyIconCircle,
+                    {
+                      backgroundColor: isDark ? "#2A2724" : "#F5F0E8",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <Inbox size={26} color={isDark ? "#8A857D" : "#666158"} strokeWidth={2} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: theme.text }]}>
                   Belum Ada Postingan Disimpan
