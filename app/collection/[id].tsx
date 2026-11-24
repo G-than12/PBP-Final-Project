@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Modal,
+  Pressable,
+  Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,14 +29,21 @@ import {
   BookOpen,
   CheckCircle2,
   Pin,
+  ChevronDown,
+  Clock,
+  History,
+  ArrowDownAZ,
+  Check,
 } from "lucide-react-native";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
 import * as Clipboard from "expo-clipboard";
 import { Platform } from "react-native";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
-import { Collection, SavedItem } from "../../src/types/models";
-import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
+import { Collection, SavedItem, SortOption } from "../../src/types/models";
+import { THEME_LIGHT, THEME_DARK, NEO_SHADOW_SM } from "../../src/constants/theme";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 import { AppIcon } from "../../src/components/ui/AppIcon";
 import { FigmaItemCard } from "../../src/components/ui/FigmaItemCard";
 import { ManilaFolderCard } from "../../src/components/ui/ManilaFolderCard";
@@ -73,6 +83,29 @@ export default function CollectionScreen() {
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Sorting state
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [sortMenuPos, setSortMenuPos] = useState({ top: 0, right: 0 });
+  const sortBtnRef = useRef<View>(null);
+
+  const openSortMenu = () => {
+    if (sortBtnRef.current && (sortBtnRef.current as any).measureInWindow) {
+      (sortBtnRef.current as any).measureInWindow(
+        (x: number, y: number, width: number, height: number) => {
+          setSortMenuPos({
+            top: Math.max(50, y + height + 6),
+            right: Math.max(16, SCREEN_WIDTH - (x + width)),
+          });
+          setSortMenuVisible(true);
+        }
+      );
+    } else {
+      setSortMenuPos({ top: 260, right: 20 });
+      setSortMenuVisible(true);
+    }
+  };
 
   // Folder Quick Action Modal for subcollections
   const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
@@ -125,7 +158,7 @@ export default function CollectionScreen() {
     return items.filter((it) => it.collectionId === id);
   }, [items, id]);
 
-  // Filtered items
+  // Filtered and sorted items
   const displayedItems = useMemo(() => {
     let result = [...collectionItems];
 
@@ -148,8 +181,16 @@ export default function CollectionScreen() {
       result = result.filter((it) => Boolean(it.deadline));
     }
 
+    if (sortOption === "newest") {
+      result.sort((a, b) => b.createdAt - a.createdAt);
+    } else if (sortOption === "oldest") {
+      result.sort((a, b) => a.createdAt - b.createdAt);
+    } else if (sortOption === "title") {
+      result.sort((a, b) => a.title.localeCompare(b.title));
+    }
+
     return result;
-  }, [collectionItems, searchQuery, filterType]);
+  }, [collectionItems, searchQuery, filterType, sortOption]);
 
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -405,11 +446,40 @@ export default function CollectionScreen() {
           </View>
         )}
 
-        {/* Items Section Label - only when items exist */}
+        {/* Items Section Header with count and Sort dropdown button */}
         {collectionItems.length > 0 && (
-          <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
-            SIMPANAN ({displayedItems.length})
-          </Text>
+          <View style={styles.itemsSectionHead}>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+              SIMPANAN ({displayedItems.length})
+            </Text>
+
+            <View style={styles.sortContainer}>
+              <TouchableOpacity
+                ref={sortBtnRef as any}
+                style={[
+                  styles.sortPill,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  openSortMenu();
+                }}
+              >
+                <Text style={[styles.sortPillText, { color: theme.text }]}>
+                  {sortOption === "newest"
+                    ? "Terbaru"
+                    : sortOption === "oldest"
+                    ? "Terlama"
+                    : "Nama A–Z"}
+                </Text>
+                <ChevronDown size={13} color={theme.text} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+          </View>
         )}
 
         {/* Empty State vs 2-Column Grid */}
@@ -513,12 +583,29 @@ export default function CollectionScreen() {
               </TouchableOpacity>
             )}
           </View>
+        ) : displayedItems.length === 1 ? (
+          <View style={styles.singleItemWrap}>
+            <FigmaItemCard
+              item={displayedItems[0]}
+              layout="horizontal"
+              showCollection={false}
+              onPress={() => router.push(`/link/${displayedItems[0].id}`)}
+              onLongPress={(rect) => {
+                setItemActionTarget({
+                  item: displayedItems[0],
+                  rect,
+                  layout: "horizontal",
+                });
+              }}
+            />
+          </View>
         ) : (
           <View style={styles.itemGrid}>
             {displayedItems.map((item, index) => (
               <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                 <FigmaItemCard
                   item={item}
+                  showCollection={false}
                   onPress={() => router.push(`/link/${item.id}`)}
                   onLongPress={(rect) => {
                     setItemActionTarget({
@@ -811,6 +898,104 @@ export default function CollectionScreen() {
           onCancel={() => setDeletingItem(null)}
         />
       )}
+
+      {/* Sort Menu Modal Dropdown */}
+      <Modal
+        transparent
+        visible={sortMenuVisible}
+        animationType="fade"
+        onRequestClose={() => setSortMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.sortModalOverlay}
+          onPress={() => setSortMenuVisible(false)}
+        />
+
+        <View
+          style={[
+            styles.sortDropdownCard,
+            {
+              top: sortMenuPos.top,
+              right: sortMenuPos.right,
+              backgroundColor: theme.card,
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+          ]}
+        >
+          <View style={styles.sortDropdownHead}>
+            <Text style={[styles.sortDropdownHeadText, { color: theme.textMuted }]}>
+              URUTKAN SIMPANAN
+            </Text>
+          </View>
+
+          {[
+            {
+              id: "newest" as SortOption,
+              label: "Terbaru",
+              desc: "Dibuat paling baru",
+              icon: <Clock size={15} color="#000000" />,
+            },
+            {
+              id: "oldest" as SortOption,
+              label: "Terlama",
+              desc: "Dibuat paling awal",
+              icon: <History size={15} color="#000000" />,
+            },
+            {
+              id: "title" as SortOption,
+              label: "Nama A–Z",
+              desc: "Urut abjad alfabet",
+              icon: <ArrowDownAZ size={15} color="#000000" />,
+            },
+          ].map((opt, idx, arr) => {
+            const isSelected = sortOption === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                activeOpacity={0.75}
+                style={[
+                  styles.sortDropdownRow,
+                  isSelected && styles.sortDropdownRowSelected,
+                  idx < arr.length - 1 && styles.sortDropdownRowBorder,
+                  { borderBottomColor: isDark ? "#4A4640" : "#F0ECE1" },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSortOption(opt.id);
+                  setSortMenuVisible(false);
+                }}
+              >
+                <View style={styles.sortRowLeft}>
+                  <View
+                    style={[
+                      styles.sortIconCircle,
+                      isSelected && styles.sortIconCircleSelected,
+                    ]}
+                  >
+                    {opt.icon}
+                  </View>
+                  <View>
+                    <Text style={[styles.sortRowLabel, { color: theme.text }]}>
+                      {opt.label}
+                    </Text>
+                    <Text
+                      style={[styles.sortRowDesc, { color: theme.textMuted }]}
+                    >
+                      {opt.desc}
+                    </Text>
+                  </View>
+                </View>
+
+                {isSelected && (
+                  <View style={styles.sortCheckPill}>
+                    <Check size={12} color="#000000" strokeWidth={3} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1138,5 +1323,117 @@ const styles = StyleSheet.create({
   menuItemSub: {
     fontSize: 11,
     marginTop: 2,
+  },
+  itemsSectionHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  singleItemWrap: {
+    width: "100%",
+    marginBottom: 18,
+  },
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sortPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    borderWidth: 2,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  sortPillText: {
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  sortModalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+  },
+  sortDropdownCard: {
+    position: "absolute",
+    width: 220,
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 6,
+    ...NEO_SHADOW_SM,
+    zIndex: 9999,
+  },
+  sortDropdownHead: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EAE6DE",
+    marginBottom: 4,
+  },
+  sortDropdownHeadText: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  sortDropdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sortDropdownRowSelected: {
+    backgroundColor: "#FFF9E6",
+  },
+  sortDropdownRowBorder: {
+    borderBottomWidth: 1,
+  },
+  sortRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sortIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    backgroundColor: "#F5F0E8",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sortIconCircleSelected: {
+    backgroundColor: "#F7CB54",
+  },
+  sortRowLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sortRowDesc: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  sortCheckPill: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#F7CB54",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
