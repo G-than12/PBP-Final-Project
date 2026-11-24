@@ -21,6 +21,8 @@ import {
   Copy,
   MoreHorizontal,
   Folder,
+  ShieldCheck,
+  Lightbulb,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK, NEO_SHADOW, NEO_SHADOW_SM, NEO_SHADOW_LG } from "../src/constants/theme";
@@ -332,8 +334,8 @@ export default function OnboardingScreen() {
           <View style={styles.successCircle}>
             <Check size={44} color="#FFFFFF" strokeWidth={3.5} />
           </View>
-          <Text style={styles.completeTitle}>Semua sudah kamu tinjau!</Text>
-          <Text style={styles.completeSub}>Kerja bagus.</Text>
+          <Text style={styles.completeTitle}>Semua Simpanan Selesai Ditinjau!</Text>
+          <Text style={styles.completeSub}>Kerja bagus. Daftar bacaanmu kini lebih rapi.</Text>
           <NeoButton
             variant="yellow"
             size="lg"
@@ -411,7 +413,7 @@ export default function OnboardingScreen() {
 
         <View style={styles.focusHelpArea}>
           <Text style={styles.focusHelpDesc}>
-            Mode Fokus menampilkan simpananmu satu per satu. Buka yang penting, lewati sisanya.
+            Mode Fokus membantumu meninjau simpanan satu per satu. Buka yang prioritas, arsipkan sisanya.
           </Text>
           <Text style={styles.focusHelpAction}>
             {focusCard === 2
@@ -435,110 +437,89 @@ export default function OnboardingScreen() {
   }
 
   // ==========================================
-  // STEP 7: READY SCREEN (100% FREE & UNLOCKED)
+  // STEP 7: READY SCREEN
   // ==========================================
   if (step === 7) {
-    const freeFeatures = [
+    const coreValues = [
       {
-        icon: "🗂️",
-        title: "Koleksi & Subkoleksi Tanpa Batas",
-        desc: "Kelola folder berjenjang dengan 16 pilihan warna dan 24 ikon kustom.",
+        icon: <Share2 size={20} color="#000000" strokeWidth={2.4} />,
+        bg: "#F7CB54",
+        title: "Simpan Cepat lewat Menu Bagikan",
+        desc: "Bagikan link langsung dari browser atau media sosial favoritmu ke SimpanIn dalam satu ketukan.",
       },
       {
-        icon: "🔗",
-        title: "Bebas Kuota Simpanan",
-        desc: "Simpan link dari Instagram, TikTok, Twitter/X, dan web sebanyak apa pun.",
+        icon: <Folder size={20} color="#000000" strokeWidth={2.4} />,
+        bg: "#A6E3D1",
+        title: "Koleksi Rapi & Terstruktur",
+        desc: "Kelompokkan simpanan berdasarkan topik agar selalu mudah kamu temukan saat dibutuhkan.",
       },
       {
-        icon: "🎯",
-        title: "Mode Fokus & Pengingat Cerdas",
-        desc: "Tinjau simpanan satu per satu agar konten penting tidak sekadar menumpuk.",
+        icon: <Sparkles size={20} color="#000000" strokeWidth={2.4} />,
+        bg: "#FFD180",
+        title: "Mode Fokus & Tinjauan Santai",
+        desc: "Tinjau link satu per satu agar konten dan inspirasi penting tidak sekadar menumpuk.",
       },
       {
-        icon: "💾",
-        title: "Penyimpanan Local-First & Cadangan JSON",
-        desc: "Data tersimpan aman di perangkatmu. Bebas ekspor dan impor kapan saja.",
+        icon: <ShieldCheck size={20} color="#000000" strokeWidth={2.4} />,
+        bg: "#B5D5F5",
+        title: "Privat & Sepenuhnya Milikmu",
+        desc: "Data tersimpan langsung di ponselmu tanpa akun, tanpa pelacak, dan bebas kamu cadangkan.",
       },
     ];
 
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-        <View style={styles.paywallNav}>
-          <View style={{ width: 40 }} />
-          <View style={styles.readyBadgeTop}>
-            <Text style={styles.readyBadgeText}>✓ SIMPANIN-MU SUDAH SIAP</Text>
-          </View>
-          <TouchableOpacity onPress={finishOnboarding} style={styles.payCloseBtn}>
-            <X size={20} color="#000000" />
+        <View style={styles.onboardTop}>
+          <TouchableOpacity onPress={prevStep} style={styles.plainBtn}>
+            <ChevronLeft size={24} color="#000000" />
           </TouchableOpacity>
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>8 / 8</Text>
+          </View>
+          <View style={styles.plainBtn} />
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.paywallScroll}
+          contentContainerStyle={styles.readyScroll}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.paywallCenter}>
-            <SimpanInMascot size={90} />
-            <Text style={styles.paywallTitle}>Siap Digunakan!</Text>
-            <Text style={styles.paywallSub}>
-              SimpanIn 100% gratis. Simpan link sebanyak apa pun tanpa batasan kuota.
+          <View style={styles.readyCenter}>
+            <SimpanInMascot size={84} />
+            <Text style={styles.readyTitle}>Semua Siap, Waktunya Rapi!</Text>
+            <Text style={styles.readySub}>
+              Satu tempat terpusat untuk semua link, artikel, dan inspirasi pentingmu. Selamat tinggal tumpukan tab dan screenshot.
             </Text>
 
-            {/* Academic Unlocked Callout Banner */}
-            <View style={styles.unlockedCallout}>
-              <View style={styles.unlockedIconPill}>
-                <Sparkles size={14} color="#000000" />
-                <Text style={styles.unlockedPillText}>100% FREE & UNLOCKED</Text>
-              </View>
-              <Text style={styles.unlockedCalloutTitle}>
-                Semua Fitur Terbuka
-              </Text>
-              <Text style={styles.unlockedCalloutDesc}>
-                Bebas bikin folder, simpan link dari aplikasi mana pun, dan ekspor datamu kapan saja.
-              </Text>
-            </View>
-
-            {/* Unlocked Features List */}
-            <View style={styles.featureBox}>
-              {freeFeatures.map((feat, idx) => (
+            {/* Core Values Card */}
+            <View style={styles.readyCardBox}>
+              {coreValues.map((item, idx) => (
                 <View
-                  key={feat.title}
+                  key={item.title}
                   style={[
-                    styles.featureRowItem,
-                    idx < freeFeatures.length - 1 && styles.featureRowBorder,
+                    styles.readyRowItem,
+                    idx < coreValues.length - 1 && styles.readyRowBorder,
                   ]}
                 >
-                  <View style={styles.featureIconBadge}>
-                    <Text style={styles.featureEmoji}>{feat.icon}</Text>
+                  <View style={[styles.readyIconBadge, { backgroundColor: item.bg }]}>
+                    {item.icon}
                   </View>
-                  <View style={styles.featureTextCol}>
-                    <View style={styles.featureTitleRow}>
-                      <Text style={styles.featureTitleText}>{feat.title}</Text>
-                      <View style={styles.freeTagBadge}>
-                        <Text style={styles.freeTagText}>GRATIS</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.featureDescText}>{feat.desc}</Text>
+                  <View style={styles.readyTextCol}>
+                    <Text style={styles.readyItemTitle}>{item.title}</Text>
+                    <Text style={styles.readyItemDesc}>{item.desc}</Text>
                   </View>
                 </View>
               ))}
             </View>
 
-            {/* Testimonials */}
-            <Text style={styles.sectionHeader}>SimpanIn paling cocok untuk...</Text>
-            <View style={styles.testimonialGrid}>
-              <View style={styles.testimonialCard}>
-                <Text style={styles.testimonialRole}>Mahasiswa</Text>
-                <Text style={styles.testimonialQuote}>
-                  “Semua referensi tugas akhirnya rapi dan gampang ditemukan.”
-                </Text>
+            {/* Quick Practical Tip */}
+            <View style={styles.quickTipCard}>
+              <View style={styles.quickTipHeader}>
+                <Lightbulb size={16} color="#000000" strokeWidth={2.5} />
+                <Text style={styles.quickTipBadgeText}>TIPS AWAL</Text>
               </View>
-              <View style={styles.testimonialCard}>
-                <Text style={styles.testimonialRole}>Wirausahawan</Text>
-                <Text style={styles.testimonialQuote}>
-                  “Ide konten tidak lagi hilang di antara puluhan aplikasi.”
-                </Text>
-              </View>
+              <Text style={styles.quickTipBody}>
+                Coba buka link artikel atau video yang sedang kamu nikmati, lalu pilih Bagikan (Share) langsung ke SimpanIn.
+              </Text>
             </View>
 
             {/* Action Section */}
@@ -551,14 +532,14 @@ export default function OnboardingScreen() {
                   setIsProcessing(true);
                   setTimeout(() => {
                     finishOnboarding();
-                  }, 400);
+                  }, 300);
                 }}
               >
-                {isProcessing ? "Menyiapkan SimpanIn..." : "Mulai Gunakan SimpanIn Sekarang →"}
+                {isProcessing ? "Menyiapkan SimpanIn..." : "Mulai Gunakan SimpanIn →"}
               </NeoButton>
 
-              <Text style={styles.pricingNote}>
-                Dirancang untuk Proyek Akhir PBP · Simpan sekali. Temukan kapan saja.
+              <Text style={styles.readyFootnote}>
+                Gratis · Tanpa Perlu Akun · Tersimpan di Perangkatmu
               </Text>
             </View>
           </View>
@@ -572,36 +553,36 @@ export default function OnboardingScreen() {
   // ==========================================
   const slides = [
     {
-      title: "Disimpan belum tentu dipakai.",
-      sub: 'Bookmark di 7 aplikasi. Screenshot di galeri. Tab yang disimpan untuk "nanti".',
-      cta: "Ada cara yang lebih baik",
+      title: "Disimpan, tapi jarang dibuka?",
+      sub: 'Bookmark tersebar di berbagai aplikasi. Screenshot menumpuk di galeri. Tab browser disimpan untuk "nanti".',
+      cta: "Ada cara yang lebih rapi →",
       art: "unopened",
     },
     {
-      title: "Kamu menyimpannya.",
-      highlight: "Lalu hilang.",
-      sub: "Konten bagus tercecer di mana-mana.",
-      cta: "Itu aku banget",
+      title: "Tersimpan di mana-mana,",
+      highlight: "Lalu terlupakan.",
+      sub: "Saat benar-benar butuh referensinya, mencarinya kembali butuh waktu lama.",
+      cta: "Sering mengalaminya →",
       art: "scattered",
     },
     {
       title: "Kenalkan, SimpanIn.",
-      sub: "Satu tempat untuk semua yang kamu simpan. Simpan sekali. Temukan saat dibutuhkan.",
-      cta: "Tunjukkan caranya",
+      sub: "Satu tempat terpusat untuk semua yang kamu simpan. Simpan sekali, temukan kapan saja.",
+      cta: "Lihat cara kerjanya →",
       art: "meet",
     },
     {}, // Step 3
     {
-      title: "Begitu saja. Sudah ada di Resep",
-      sub: "Judul, pratinjau, dan sumber — sudah terisi untukmu.",
-      cta: "Ayo pakai →",
+      title: "Semudah itu. Langsung tersimpan.",
+      sub: "Judul, cuplikan, dan sumber link langsung terisi otomatis ke folder pilihanmu.",
+      cta: "Lanjut ke fitur berikutnya →",
       art: "preview",
     },
     {}, // Step 5
     {
-      title: "Jangan lupakan lagi simpananmu!",
-      sub: "Pengingat ringan saat simpananmu sedang menunggu.",
-      cta: "Nyalakan pengingat",
+      title: "Ingin diingatkan secara berkala?",
+      sub: "Dapatkan pengingat santai agar artikel dan inspirasi pentingmu tidak berakhir menumpuk.",
+      cta: "Nyalakan Pengingat",
       art: "notification",
     },
     {}, // Step 7
@@ -740,9 +721,9 @@ export default function OnboardingScreen() {
             <View style={styles.notificationBubble}>
               <SimpanInMascot small size={36} />
               <View style={styles.notifTextCol}>
-                <Text style={styles.notifStrong}>SimpanIn · sekarang</Text>
+                <Text style={styles.notifStrong}>SimpanIn · Pengingat Santai</Text>
                 <Text style={styles.notifPara}>
-                  Jangan lupakan simpananmu — Yuk, geser simpanan yang belum kamu lihat.
+                  Ada simpanan yang belum sempat kamu baca. Luangkan 2 menit untuk melihatnya.
                 </Text>
               </View>
             </View>
@@ -758,7 +739,7 @@ export default function OnboardingScreen() {
             size="lg"
             onPress={nextStep}
           >
-            Nanti saja
+            Lewati Dulu
           </NeoButton>
         )}
 
@@ -1733,108 +1714,34 @@ const styles = StyleSheet.create({
   },
 
   // ------------------------------------------
-  // STEP 7: PAYWALL / READY SCREEN STYLES
+  // STEP 7: READY SCREEN STYLES
   // ------------------------------------------
-  paywallNav: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  readyBadgeTop: {
-    backgroundColor: "#A6E3D1",
-    borderWidth: 2,
-    borderColor: "#000000",
-    ...NEO_SHADOW_SM,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  readyBadgeText: {
-    fontSize: 10,
-    fontWeight: "900",
-    color: "#000000",
-    letterSpacing: 0.5,
-  },
-  payCloseBtn: {
-    width: 36,
-    height: 36,
-    borderWidth: 2,
-    borderColor: "#000000",
-    backgroundColor: "#FFFFFF",
-    ...NEO_SHADOW_SM,
-    borderRadius: 18,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  paywallScroll: {
+  readyScroll: {
     paddingHorizontal: 20,
-    paddingBottom: 36,
+    paddingBottom: 40,
   },
-  paywallCenter: {
+  readyCenter: {
     alignItems: "center",
     paddingTop: 10,
   },
-  paywallTitle: {
-    fontSize: 28,
+  readyTitle: {
+    fontSize: 26,
     fontWeight: "900",
-    letterSpacing: -1,
+    letterSpacing: -0.5,
     textAlign: "center",
     color: "#000000",
     marginTop: 14,
     lineHeight: 32,
   },
-  paywallSub: {
+  readySub: {
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
     color: "#666158",
     textAlign: "center",
     marginTop: 6,
     maxWidth: 340,
   },
-  unlockedCallout: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderWidth: 2.5,
-    borderColor: "#000000",
-    ...NEO_SHADOW,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 18,
-    alignItems: "center",
-  },
-  unlockedIconPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#F7CB54",
-    borderWidth: 1.5,
-    borderColor: "#000000",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginBottom: 8,
-  },
-  unlockedPillText: {
-    fontSize: 10,
-    fontWeight: "900",
-    color: "#000000",
-  },
-  unlockedCalloutTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#000000",
-    textAlign: "center",
-  },
-  unlockedCalloutDesc: {
-    fontSize: 11,
-    color: "#666158",
-    textAlign: "center",
-    marginTop: 4,
-    lineHeight: 16,
-  },
-  featureBox: {
+  readyCardBox: {
     width: "100%",
     backgroundColor: "#FFFFFF",
     borderWidth: 2,
@@ -1844,95 +1751,66 @@ const styles = StyleSheet.create({
     marginTop: 20,
     overflow: "hidden",
   },
-  featureRowItem: {
+  readyRowItem: {
     flexDirection: "row",
     padding: 14,
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 12,
   },
-  featureRowBorder: {
+  readyRowBorder: {
     borderBottomWidth: 1.5,
-    borderColor: "#E5E1DA",
+    borderColor: "#EAE6DE",
   },
-  featureIconBadge: {
-    width: 44,
-    height: 44,
+  readyIconBadge: {
+    width: 40,
+    height: 40,
     borderRadius: 10,
-    backgroundColor: "#F7CB54",
     borderWidth: 1.5,
     borderColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 2,
   },
-  featureEmoji: {
-    fontSize: 20,
-  },
-  featureTextCol: {
+  readyTextCol: {
     flex: 1,
   },
-  featureTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 2,
-  },
-  featureTitleText: {
-    fontSize: 13,
+  readyItemTitle: {
+    fontSize: 14,
     fontWeight: "900",
     color: "#000000",
-    flex: 1,
+    marginBottom: 3,
   },
-  freeTagBadge: {
-    backgroundColor: "#A6E3D1",
-    borderWidth: 1,
-    borderColor: "#000000",
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    marginLeft: 6,
-  },
-  freeTagText: {
-    fontSize: 8.5,
-    fontWeight: "900",
-    color: "#000000",
-  },
-  featureDescText: {
-    fontSize: 11,
+  readyItemDesc: {
+    fontSize: 12,
     color: "#666158",
-    lineHeight: 15,
+    lineHeight: 17,
   },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#000000",
-    alignSelf: "flex-start",
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  testimonialGrid: {
-    flexDirection: "row",
-    gap: 10,
+  quickTipCard: {
     width: "100%",
-  },
-  testimonialCard: {
-    flex: 1,
+    backgroundColor: "#F5F0E8",
     borderWidth: 2,
     borderColor: "#000000",
-    backgroundColor: "#FFFFFF",
     ...NEO_SHADOW_SM,
-    padding: 12,
     borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
   },
-  testimonialRole: {
-    fontSize: 12,
+  quickTipHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 6,
+  },
+  quickTipBadgeText: {
+    fontSize: 11,
     fontWeight: "900",
     color: "#000000",
-    marginBottom: 4,
+    letterSpacing: 0.5,
   },
-  testimonialQuote: {
-    fontSize: 11,
-    lineHeight: 16,
-    color: "#444444",
+  quickTipBody: {
+    fontSize: 12,
+    color: "#44403C",
+    lineHeight: 18,
   },
   readyActionSection: {
     width: "100%",
@@ -1942,10 +1820,10 @@ const styles = StyleSheet.create({
   startAppBtn: {
     width: "100%",
   },
-  pricingNote: {
+  readyFootnote: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#666158",
+    color: "#8A8478",
     textAlign: "center",
     marginTop: 12,
   },
