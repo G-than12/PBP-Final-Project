@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Image,
   Dimensions,
-  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -80,25 +79,6 @@ export default function CalendarScreen() {
   const router = useRouter();
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
-
-  const calendarFadeAnim = useRef(new Animated.Value(0)).current;
-  const calendarSlideAnim = useRef(new Animated.Value(14)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(calendarFadeAnim, {
-        toValue: 1,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-      Animated.spring(calendarSlideAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const items = useSimpanInStore((state) => state.items);
   const collections = useSimpanInStore((state) => state.collections);
@@ -356,7 +336,6 @@ export default function CalendarScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Animated.View style={{ opacity: calendarFadeAnim, transform: [{ translateY: calendarSlideAnim }] }}>
         {/* Clean Instagram Archive Switcher Tabs: Kalender vs Grid */}
         <View style={styles.igViewSwitcher}>
           <TouchableOpacity
@@ -768,7 +747,6 @@ export default function CalendarScreen() {
             )}
           </View>
         )}
-        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );

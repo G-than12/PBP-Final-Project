@@ -1,5 +1,5 @@
-import React, { useRef } from "react";
-import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import React from "react";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Collection } from "../../types/models";
 import { AppIcon } from "./AppIcon";
@@ -33,27 +33,8 @@ export function ManilaFolderCard({
   onLongPress,
 }: ManilaFolderCardProps) {
   const cardRef = React.useRef<any>(null);
-  const scaleAnim = useRef(new Animated.Value(1)).current;
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      tension: 130,
-      friction: 8,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      tension: 110,
-      friction: 6,
-      useNativeDriver: true,
-    }).start();
-  };
 
   const handlePress = () => {
     Haptics.selectionAsync();
@@ -83,22 +64,19 @@ export function ManilaFolderCard({
 
   return (
     <View ref={cardRef} collapsable={false}>
-      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-        <Pressable
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          onPress={handlePress}
-          onLongPress={onLongPress ? handleLongPress : undefined}
-          delayLongPress={300}
-          style={({ pressed }) => [
-            styles.folderCard,
-            {
-              backgroundColor: isDark ? "#242220" : "#FFFFFF",
-              borderColor: isDark ? "#4A4640" : "#000000",
-            },
-            pressed ? styles.pressedOffset : styles.hardShadow,
-          ]}
-        >
+      <Pressable
+        onPress={handlePress}
+        onLongPress={onLongPress ? handleLongPress : undefined}
+        delayLongPress={300}
+        style={({ pressed }) => [
+          styles.folderCard,
+          {
+            backgroundColor: isDark ? "#242220" : "#FFFFFF",
+            borderColor: isDark ? "#4A4640" : "#000000",
+          },
+          pressed ? styles.pressedOffset : styles.hardShadow,
+        ]}
+      >
       {/* Folder Tab on top left */}
       <View
         style={[
@@ -167,7 +145,6 @@ export function ManilaFolderCard({
         </Text>
       </View>
     </Pressable>
-  </Animated.View>
   </View>
 );
 }

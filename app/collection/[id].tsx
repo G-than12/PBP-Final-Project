@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  Animated,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -55,25 +54,6 @@ export default function CollectionScreen() {
 
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
-
-  const contentFadeAnim = useRef(new Animated.Value(0)).current;
-  const contentSlideAnim = useRef(new Animated.Value(14)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(contentFadeAnim, {
-        toValue: 1,
-        duration: 260,
-        useNativeDriver: true,
-      }),
-      Animated.spring(contentSlideAnim, {
-        toValue: 0,
-        tension: 80,
-        friction: 8,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
 
   const collections = useSimpanInStore((state) => state.collections);
   const items = useSimpanInStore((state) => state.items);
@@ -238,7 +218,6 @@ export default function CollectionScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        <Animated.View style={{ opacity: contentFadeAnim, transform: [{ translateY: contentSlideAnim }] }}>
         {/* Figma Collection Banner */}
         <View
           style={[
@@ -552,7 +531,6 @@ export default function CollectionScreen() {
             ))}
           </View>
         )}
-        </Animated.View>
       </ScrollView>
 
       {/* Floating Action Button (FAB) */}
