@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
 import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
@@ -28,6 +29,13 @@ export function NeoBottomSheet({
 }: NeoBottomSheetProps) {
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+  const insets = useSafeAreaInsets();
+
+  // Ensure plenty of bottom padding for both physical devices and browser simulator extensions
+  const safeBottomPadding = Math.max(
+    insets.bottom,
+    Platform.OS === "web" ? 38 : 20
+  ) + 16;
 
   return (
     <Modal
@@ -49,6 +57,7 @@ export function NeoBottomSheet({
             {
               backgroundColor: theme.surface,
               borderColor: isDark ? "#4A4640" : "#000000",
+              paddingBottom: safeBottomPadding,
             },
           ]}
         >

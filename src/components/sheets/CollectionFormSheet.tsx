@@ -9,6 +9,7 @@ import {
   Platform,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Check } from "lucide-react-native";
 import { Collection } from "../../types/models";
 import {
   FOLDER_COLORS,
@@ -57,10 +58,10 @@ export function CollectionFormSheet({
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
   const [gridWidth, setGridWidth] = useState(0);
 
-  // Responsively calculate item size so 8 items fit per row cleanly with 8px gaps
+  // Responsively calculate item size so 8 items fit per row cleanly with 8px gaps and 8px horizontal padding
   const itemSize =
     gridWidth > 0
-      ? Math.min(48, Math.max(28, Math.floor((gridWidth - 7 * 8) / 8)))
+      ? Math.min(48, Math.max(28, Math.floor((gridWidth - 8 - 7 * 8) / 8)))
       : 34;
 
   // Hanya tampilkan koleksi induk yang valid (tidak termasuk diri sendiri dan seluruh subkoleksinya)
@@ -168,6 +169,7 @@ export function CollectionFormSheet({
               return (
                 <TouchableOpacity
                   key={c}
+                  activeOpacity={0.8}
                   style={[
                     styles.colorSquare,
                     {
@@ -181,7 +183,15 @@ export function CollectionFormSheet({
                     Haptics.selectionAsync();
                     setSelectedColor(c);
                   }}
-                />
+                >
+                  {isSelected && (
+                    <Check
+                      size={Math.max(14, Math.floor(itemSize * 0.45))}
+                      color="#000000"
+                      strokeWidth={3}
+                    />
+                  )}
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -352,34 +362,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   colorSquare: {
-    borderRadius: 6,
+    borderRadius: 7,
     borderWidth: 2,
     borderColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
   },
   colorSquareSelected: {
+    borderWidth: 2.5,
+    borderColor: "#000000",
     shadowColor: "#000000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 1,
     shadowRadius: 0,
     elevation: 3,
-    transform: [{ scale: 1.08 }],
   },
   iconGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   iconSquare: {
-    borderRadius: 6,
+    borderRadius: 7,
     borderWidth: 2,
     justifyContent: "center",
     alignItems: "center",
   },
   iconSquareSelected: {
+    borderWidth: 2.5,
+    borderColor: "#000000",
     shadowColor: "#000000",
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 1,
