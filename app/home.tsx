@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Animated,
+  Pressable,
+  Dimensions,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,10 +28,15 @@ import {
   Sparkles,
   ArrowRight,
   Clock,
+  Calendar,
+  Check,
+  ChevronDown,
+  ArrowDownAZ,
+  History,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../src/store/useSimpanInStore";
 import { Collection, SavedItem, SortOption } from "../src/types/models";
-import { THEME_LIGHT, THEME_DARK } from "../src/constants/theme";
+import { THEME_LIGHT, THEME_DARK, NEO_SHADOW_SM } from "../src/constants/theme";
 import { extractFirstUrl, isFetchableUrl } from "../src/utils/metadataParser";
 import { SimpanInMascot } from "../src/components/ui/SimpanInMascot";
 import * as Linking from "expo-linking";
@@ -38,10 +47,10 @@ import { FigmaItemCard } from "../src/components/ui/FigmaItemCard";
 import { FolderQuickActionModal, FolderActionTarget } from "../src/components/ui/FolderQuickActionModal";
 import { ItemQuickActionModal, ItemActionTarget } from "../src/components/ui/ItemQuickActionModal";
 import { NeoConfirmModal } from "../src/components/ui/NeoConfirmModal";
+import { NeoBottomSheet } from "../src/components/ui/NeoBottomSheet";
 import { SaveLinkSheet } from "../src/components/sheets/SaveLinkSheet";
 import { CollectionFormSheet } from "../src/components/sheets/CollectionFormSheet";
 import { ShareCollectionSheet } from "../src/components/sheets/ShareCollectionSheet";
-import { HomeTitleEditorSheet } from "../src/components/sheets/HomeTitleEditorSheet";
 import { useIncomingShare } from "../src/hooks/useIncomingShare";
 
 export default function HomeScreen() {
@@ -51,7 +60,6 @@ export default function HomeScreen() {
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
   const homeTitle = useSimpanInStore((state) => state.settings.homeTitle);
-  const setHomeTitle = useSimpanInStore((state) => state.setHomeTitle);
   const collections = useSimpanInStore((state) => state.collections);
   const rawItems = useSimpanInStore((state) => state.items);
   const items = useMemo(() => {
@@ -83,10 +91,63 @@ export default function HomeScreen() {
   const deleteLink = useSimpanInStore((state) => state.deleteLink);
 
   const [quickUrl, setQuickUrl] = useState("");
+  // Speed Dial FAB state ("bola-bola kecil") with staggered springs & haptics
+  const [speedDialOpen, setSpeedDialOpen] = useState(false);
+  const fabRotateAnim = useRef(new Animated.Value(0)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const bubble1Anim = useRef(new Animated.Value(0)).current; // Simpan Tautan (bawah)
+  const bubble2Anim = useRef(new Animated.Value(0)).current; // Kalender & Tenggat (atas)
+
+  // Count of urgent/overdue deadlines for Calendar bubble badge
+  const urgentDeadlinesCount = useMemo(() => {
+    const now = Date.now();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return items.filter((it) => {
+      if (!it.deadline) return false;
+      return it.deadline <= now + threeDaysMs;
+    }).length;
+  }, [items]);
+
+  const toggleSpeedDial = () => {
+    if (speedDialOpen) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Animated.parallel([
+        Animated.timing(fabRotateAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(backdropAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(bubble2Anim, { toValue: 0, duration: 130, useNativeDriver: true }),
+        Animated.timing(bubble1Anim, { toValue: 0, duration: 170, useNativeDriver: true }),
+      ]).start(() => setSpeedDialOpen(false));
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSpeedDialOpen(true);
+      Animated.parallel([
+        Animated.timing(backdropAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(fabRotateAnim, { toValue: 1, tension: 70, friction: 8, useNativeDriver: true }),
+        Animated.spring(bubble1Anim, { toValue: 1, tension: 80, friction: 7, useNativeDriver: true }),
+        Animated.sequence([
+          Animated.delay(45),
+          Animated.spring(bubble2Anim, { toValue: 1, tension: 80, friction: 7, useNativeDriver: true }),
+        ]),
+      ]).start();
+    }
+  };
+
+  const closeSpeedDial = (callback?: () => void) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.parallel([
+      Animated.timing(fabRotateAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(backdropAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(bubble2Anim, { toValue: 0, duration: 120, useNativeDriver: true }),
+      Animated.timing(bubble1Anim, { toValue: 0, duration: 160, useNativeDriver: true }),
+    ]).start(() => {
+      setSpeedDialOpen(false);
+      if (callback) callback();
+    });
+  };
+
   const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [saveInitialUrl, setSaveInitialUrl] = useState("");
   const [showCollectionSheet, setShowCollectionSheet] = useState(false);
-  const [showTitleEditor, setShowTitleEditor] = useState(false);
   const [defaultColIdForSave, setDefaultColIdForSave] = useState<string | undefined>(undefined);
   const [isIncomingShare, setIsIncomingShare] = useState(false);
   const [justSavedTarget, setJustSavedTarget] = useState<{
@@ -188,15 +249,23 @@ export default function HomeScreen() {
     });
   }, [collections, sortOption]);
 
-  const cycleSort = () => {
+  const sortButtonRef = useRef<any>(null);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
+  const [sortMenuPos, setSortMenuPos] = useState({ top: 220, right: 16 });
+
+  const openSortMenu = () => {
     Haptics.selectionAsync();
-    const next: SortOption =
-      sortOption === "newest"
-        ? "oldest"
-        : sortOption === "oldest"
-        ? "title"
-        : "newest";
-    setSortOption(next);
+    if (sortButtonRef.current && sortButtonRef.current.measureInWindow) {
+      sortButtonRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+        setSortMenuPos({
+          top: y + height + 6,
+          right: Math.max(16, Dimensions.get("window").width - (x + width)),
+        });
+        setSortMenuVisible(true);
+      });
+    } else {
+      setSortMenuVisible(true);
+    }
   };
 
   const handleQuickPaste = async () => {
@@ -351,21 +420,14 @@ export default function HomeScreen() {
         )}
 
         {/* Hero 2-Line Title */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setShowTitleEditor(true);
-          }}
-          style={styles.heroTitleBox}
-        >
+        <View style={styles.heroTitleBox}>
           <Text style={[styles.heroTitleText, { color: theme.text }]}>
             {homeTitle[0]}
           </Text>
           <Text style={[styles.heroTitleText, { color: theme.text }]}>
             {homeTitle[1]}
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Quick Save Bar */}
         <View
@@ -440,24 +502,28 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHead}>
             <Text style={[styles.sectionHeading, { color: theme.text }]}>Koleksiku</Text>
-            <TouchableOpacity
-              style={[
-                styles.sortPill,
-                {
-                  backgroundColor: theme.surface,
-                  borderColor: isDark ? "#4A4640" : "#000000",
-                },
-              ]}
-              onPress={cycleSort}
-            >
-              <Text style={[styles.sortPillText, { color: theme.text }]}>
-                {sortOption === "newest"
-                  ? "Terbaru ⌄"
-                  : sortOption === "oldest"
-                  ? "Terlama ⌄"
-                  : "Nama A–Z ⌄"}
-              </Text>
-            </TouchableOpacity>
+            <View ref={sortButtonRef} collapsable={false}>
+              <TouchableOpacity
+                style={[
+                  styles.sortPill,
+                  {
+                    backgroundColor: sortMenuVisible ? "#F7CB54" : theme.surface,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                onPress={openSortMenu}
+                accessibilityLabel="Buka menu urutan koleksi"
+              >
+                <Text style={[styles.sortPillText, { color: theme.text }]}>
+                  {sortOption === "newest"
+                    ? "Terbaru"
+                    : sortOption === "oldest"
+                    ? "Terlama"
+                    : "Nama A–Z"}
+                </Text>
+                <ChevronDown size={13} color={theme.text} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* 2-column Manila Folder Grid */}
@@ -598,18 +664,137 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
-      {/* Floating Action Button (FAB) */}
+      {/* Dimmed backdrop when Speed Dial is open */}
+      {speedDialOpen && (
+        <Animated.View
+          style={[
+            styles.speedDialBackdrop,
+            { opacity: backdropAnim },
+          ]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => closeSpeedDial()}
+          />
+        </Animated.View>
+      )}
+
+      {/* Speed Dial Mini Action Bubbles ("bola-bola kecil") with staggered springs */}
+      {speedDialOpen && (
+        <View style={styles.speedDialContainer} pointerEvents="box-none">
+          {/* Bubble 2: Kalender & Tenggat (dengan jeda stagger 45ms & badge notifikasi) */}
+          <Animated.View
+            style={[
+              styles.speedDialRow,
+              {
+                opacity: bubble2Anim,
+                transform: [
+                  {
+                    translateY: bubble2Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [24, 0],
+                    }),
+                  },
+                  {
+                    scale: bubble2Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={[styles.speedDialLabelPill, { backgroundColor: theme.card }]}>
+              <Text style={[styles.speedDialLabelText, { color: theme.text }]}>
+                Kalender & Tenggat
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.speedDialBubble, { backgroundColor: "#A6E3D1" }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                closeSpeedDial(() => router.push("/calendar"));
+              }}
+              accessibilityLabel="Buka Kalender"
+            >
+              <Calendar size={22} color="#000000" strokeWidth={2.4} />
+              {urgentDeadlinesCount > 0 && (
+                <View style={styles.bubbleNotificationBadge}>
+                  <Text style={styles.bubbleNotificationText}>
+                    {urgentDeadlinesCount > 9 ? "9+" : urgentDeadlinesCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Bubble 1: Simpan Tautan (muncul seketika) */}
+          <Animated.View
+            style={[
+              styles.speedDialRow,
+              {
+                opacity: bubble1Anim,
+                transform: [
+                  {
+                    translateY: bubble1Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [14, 0],
+                    }),
+                  },
+                  {
+                    scale: bubble1Anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={[styles.speedDialLabelPill, { backgroundColor: theme.card }]}>
+              <Text style={[styles.speedDialLabelText, { color: theme.text }]}>
+                Simpan Tautan
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.speedDialBubble, { backgroundColor: "#F7CB54" }]}
+              activeOpacity={0.8}
+              onPress={() => {
+                closeSpeedDial(() => {
+                  setSaveInitialUrl("");
+                  setShowSaveSheet(true);
+                });
+              }}
+              accessibilityLabel="Simpan Tautan Baru"
+            >
+              <Plus size={24} color="#000000" strokeWidth={3} />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      )}
+
+      {/* Main Floating Action Button (FAB) */}
       <TouchableOpacity
         style={styles.fabBtn}
         activeOpacity={0.85}
-        onPress={() => {
-          Haptics.selectionAsync();
-          setSaveInitialUrl("");
-          setShowSaveSheet(true);
-        }}
-        accessibilityLabel="Tambah Simpanan Cepat"
+        onPress={toggleSpeedDial}
+        accessibilityLabel={speedDialOpen ? "Tutup Menu Aksi" : "Buka Menu Aksi"}
       >
-        <Plus size={28} color="#000000" strokeWidth={3} />
+        <Animated.View
+          style={{
+            transform: [
+              {
+                rotate: fabRotateAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ["0deg", "45deg"],
+                }),
+              },
+            ],
+          }}
+        >
+          <Plus size={28} color="#000000" strokeWidth={3} />
+        </Animated.View>
       </TouchableOpacity>
 
       {/* Save Link Sheet */}
@@ -689,13 +874,7 @@ export default function HomeScreen() {
         />
       )}
 
-      {/* Title Editor Sheet */}
-      <HomeTitleEditorSheet
-        visible={showTitleEditor}
-        currentTitle={homeTitle}
-        onClose={() => setShowTitleEditor(false)}
-        onSave={(newTitle) => setHomeTitle(newTitle)}
-      />
+
 
       {/* Folder Quick Action Modal on Long Press */}
       <FolderQuickActionModal
@@ -782,6 +961,104 @@ export default function HomeScreen() {
           onCancel={() => setDeletingItem(null)}
         />
       )}
+
+      {/* Neobrutalist Sort Dropdown Modal */}
+      <Modal
+        transparent
+        visible={sortMenuVisible}
+        animationType="fade"
+        onRequestClose={() => setSortMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.sortModalOverlay}
+          onPress={() => setSortMenuVisible(false)}
+        />
+
+        <View
+          style={[
+            styles.sortDropdownCard,
+            {
+              top: sortMenuPos.top,
+              right: sortMenuPos.right,
+              backgroundColor: theme.card,
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+          ]}
+        >
+          <View style={styles.sortDropdownHead}>
+            <Text style={[styles.sortDropdownHeadText, { color: theme.textMuted }]}>
+              URUTKAN KOLEKSI
+            </Text>
+          </View>
+
+          {[
+            {
+              id: "newest" as SortOption,
+              label: "Terbaru",
+              desc: "Dibuat paling baru",
+              icon: <Clock size={15} color="#000000" />,
+            },
+            {
+              id: "oldest" as SortOption,
+              label: "Terlama",
+              desc: "Dibuat paling awal",
+              icon: <History size={15} color="#000000" />,
+            },
+            {
+              id: "title" as SortOption,
+              label: "Nama A–Z",
+              desc: "Urut abjad alfabet",
+              icon: <ArrowDownAZ size={15} color="#000000" />,
+            },
+          ].map((opt, idx, arr) => {
+            const isSelected = sortOption === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                activeOpacity={0.75}
+                style={[
+                  styles.sortDropdownRow,
+                  isSelected && styles.sortDropdownRowSelected,
+                  idx < arr.length - 1 && styles.sortDropdownRowBorder,
+                  { borderBottomColor: isDark ? "#4A4640" : "#F0ECE1" },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setSortOption(opt.id);
+                  setSortMenuVisible(false);
+                }}
+              >
+                <View style={styles.sortRowLeft}>
+                  <View
+                    style={[
+                      styles.sortIconCircle,
+                      isSelected && styles.sortIconCircleSelected,
+                    ]}
+                  >
+                    {opt.icon}
+                  </View>
+                  <View>
+                    <Text style={[styles.sortRowLabel, { color: theme.text }]}>
+                      {opt.label}
+                    </Text>
+                    <Text
+                      style={[styles.sortRowDesc, { color: theme.textMuted }]}
+                    >
+                      {opt.desc}
+                    </Text>
+                  </View>
+                </View>
+
+                {isSelected && (
+                  <View style={styles.sortCheckPill}>
+                    <Check size={12} color="#000000" strokeWidth={3} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -951,9 +1228,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   sortPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     borderWidth: 2,
-    borderRadius: 4,
-    paddingHorizontal: 8,
+    borderRadius: 6,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     shadowColor: "#000000",
     shadowOffset: { width: 2, height: 2 },
@@ -964,6 +1244,85 @@ const styles = StyleSheet.create({
   sortPillText: {
     fontSize: 11,
     fontWeight: "800",
+  },
+  sortModalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+  },
+  sortDropdownCard: {
+    position: "absolute",
+    width: 220,
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 6,
+    ...NEO_SHADOW_SM,
+    zIndex: 9999,
+  },
+  sortDropdownHead: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EAE6DE",
+    marginBottom: 4,
+  },
+  sortDropdownHeadText: {
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+  },
+  sortDropdownRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  sortDropdownRowSelected: {
+    backgroundColor: "#FFF9E6",
+  },
+  sortDropdownRowBorder: {
+    borderBottomWidth: 1,
+  },
+  sortRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sortIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    backgroundColor: "#F5F0E8",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sortIconCircleSelected: {
+    backgroundColor: "#F7CB54",
+  },
+  sortRowLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  sortRowDesc: {
+    fontSize: 10,
+    fontWeight: "500",
+  },
+  sortCheckPill: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#F7CB54",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
   },
   folderGrid: {
     flexDirection: "row",
@@ -1071,5 +1430,66 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontSize: 12,
     fontWeight: "800",
+  },
+  speedDialBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    zIndex: 90,
+  },
+  speedDialContainer: {
+    position: "absolute",
+    bottom: 94,
+    right: 20,
+    zIndex: 95,
+    gap: 14,
+    alignItems: "flex-end",
+  },
+  speedDialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  speedDialLabelPill: {
+    borderWidth: 2,
+    borderColor: "#000000",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    ...NEO_SHADOW_SM,
+  },
+  speedDialLabelText: {
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+  },
+  speedDialBubble: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+    ...NEO_SHADOW_SM,
+    position: "relative",
+  },
+  bubbleNotificationBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#EF4444",
+    borderWidth: 1.5,
+    borderColor: "#000000",
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  bubbleNotificationText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "900",
   },
 });
