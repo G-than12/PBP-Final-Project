@@ -35,6 +35,7 @@ import {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const isOnboarded = useSimpanInStore((state) => state.isOnboarded);
   const setOnboarded = useSimpanInStore((state) => state.setOnboarded);
   const resetToCleanDatabase = useSimpanInStore((state) => state.resetToCleanDatabase);
   const setNotificationsEnabled = useSimpanInStore((state) => state.setNotificationsEnabled);
@@ -49,9 +50,15 @@ export default function OnboardingScreen() {
 
   const finishOnboarding = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    resetToCleanDatabase();
+    if (!isOnboarded) {
+      resetToCleanDatabase();
+    }
     setOnboarded(true);
-    router.replace("/home");
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace("/home");
+    }
   };
 
   const nextStep = () => {
@@ -108,8 +115,23 @@ export default function OnboardingScreen() {
           <TouchableOpacity onPress={() => setStep(2)} style={styles.plainBtn}>
             <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>{step + 1} / 8</Text>
+          <View
+            style={[
+              styles.stepBadge,
+              {
+                backgroundColor: isDark ? "#2A2724" : "#FFFFFF",
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.stepBadgeText,
+                { color: isDark ? "#FFFFFF" : "#000000" },
+              ]}
+            >
+              {step + 1} / 8
+            </Text>
           </View>
           <TouchableOpacity onPress={skipToFinal}>
             <Text style={[styles.textBtn, { color: "#FFFFFF" }]}>Lewati</Text>
@@ -156,14 +178,36 @@ export default function OnboardingScreen() {
 
         {/* Fake Sheet: Share Dialog */}
         {demoStage === 1 && (
-          <View style={styles.fakeSheet}>
-            <Text style={styles.fakeSheetTitle}>Membagikan link</Text>
+          <View
+            style={[
+              styles.fakeSheet,
+              {
+                backgroundColor: isDark ? "#242220" : "#FFFFFF",
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <Text style={[styles.fakeSheetTitle, { color: theme.text }]}>
+              Membagikan link
+            </Text>
             <View style={styles.shareGrid}>
               <View style={styles.shareCol}>
-                <View style={styles.shareIconCircle}>
-                  <MessageSquare size={20} color="#666158" />
+                <View
+                  style={[
+                    styles.shareIconCircle,
+                    {
+                      backgroundColor: isDark ? "#33302C" : "#EEEAE4",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <MessageSquare size={20} color={theme.textMuted} />
                 </View>
-                <Text style={styles.shareColText}>Pesan</Text>
+                <Text
+                  style={[styles.shareColText, { color: theme.textSecondary }]}
+                >
+                  Pesan
+                </Text>
               </View>
 
               <TouchableOpacity
@@ -182,17 +226,41 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
 
               <View style={styles.shareCol}>
-                <View style={styles.shareIconCircle}>
-                  <Copy size={20} color="#666158" />
+                <View
+                  style={[
+                    styles.shareIconCircle,
+                    {
+                      backgroundColor: isDark ? "#33302C" : "#EEEAE4",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <Copy size={20} color={theme.textMuted} />
                 </View>
-                <Text style={styles.shareColText}>Salin link</Text>
+                <Text
+                  style={[styles.shareColText, { color: theme.textSecondary }]}
+                >
+                  Salin link
+                </Text>
               </View>
 
               <View style={styles.shareCol}>
-                <View style={styles.shareIconCircle}>
-                  <MoreHorizontal size={20} color="#666158" />
+                <View
+                  style={[
+                    styles.shareIconCircle,
+                    {
+                      backgroundColor: isDark ? "#33302C" : "#EEEAE4",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <MoreHorizontal size={20} color={theme.textMuted} />
                 </View>
-                <Text style={styles.shareColText}>Lainnya</Text>
+                <Text
+                  style={[styles.shareColText, { color: theme.textSecondary }]}
+                >
+                  Lainnya
+                </Text>
               </View>
             </View>
           </View>
@@ -200,25 +268,67 @@ export default function OnboardingScreen() {
 
         {/* Fake Sheet: Save to SimpanIn */}
         {demoStage >= 2 && (
-          <View style={[styles.fakeSheet, styles.saveDemoSheet]}>
-            <Text style={styles.fakeSheetTitle}>Simpan ke SimpanIn</Text>
-            <View style={styles.urlBox}>
-              <Text style={styles.urlBoxText} numberOfLines={1}>
+          <View
+            style={[
+              styles.fakeSheet,
+              styles.saveDemoSheet,
+              {
+                backgroundColor: isDark ? "#242220" : "#FFFFFF",
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <Text style={[styles.fakeSheetTitle, { color: theme.text }]}>
+              Simpan ke SimpanIn
+            </Text>
+            <View
+              style={[
+                styles.urlBox,
+                {
+                  backgroundColor: isDark ? "#1E1C1A" : "#EEEAE4",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text
+                style={[styles.urlBoxText, { color: theme.textMuted }]}
+                numberOfLines={1}
+              >
                 https://social.example/reel/quick-dinner-recipe
               </Text>
             </View>
 
             <TouchableOpacity
-              style={styles.toggleLine}
+              style={[
+                styles.toggleLine,
+                { borderColor: isDark ? "#3A3630" : "#000000" },
+              ]}
               activeOpacity={0.85}
               onPress={() => {
                 Haptics.selectionAsync();
                 setPinToggle(!pinToggle);
               }}
             >
-              <Text style={styles.toggleLabel}>Sematkan link ini</Text>
-              <View style={[styles.toggleTrack, pinToggle && styles.toggleTrackOn]}>
-                <View style={[styles.toggleThumb, pinToggle && styles.toggleThumbOn]} />
+              <Text style={[styles.toggleLabel, { color: theme.text }]}>
+                Sematkan link ini
+              </Text>
+              <View
+                style={[
+                  styles.toggleTrack,
+                  {
+                    backgroundColor: isDark ? "#3A3630" : "#DDDDDD",
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                  pinToggle && styles.toggleTrackOn,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.toggleThumb,
+                    { borderColor: isDark ? "#4A4640" : "#000000" },
+                    pinToggle && styles.toggleThumbOn,
+                  ]}
+                />
               </View>
             </TouchableOpacity>
 
@@ -231,7 +341,14 @@ export default function OnboardingScreen() {
                     key={folderName}
                     style={[
                       styles.folderRow,
-                      isSelected && styles.folderRowSelected,
+                      { borderColor: isDark ? "#3A3630" : "#E5E1DA" },
+                      isSelected && [
+                        styles.folderRowSelected,
+                        {
+                          backgroundColor: isDark ? "#3A321E" : "#FFF3C8",
+                          borderColor: isDark ? "#7A6830" : "#000000",
+                        },
+                      ],
                     ]}
                     onPress={() => {
                       if (isResep) {
@@ -243,12 +360,19 @@ export default function OnboardingScreen() {
                     <View style={styles.folderRowLeft}>
                       <Folder
                         size={18}
-                        color={isSelected ? "#000000" : "#666158"}
+                        color={
+                          isSelected
+                            ? isDark
+                              ? "#F7CB54"
+                              : "#000000"
+                            : theme.textMuted
+                        }
                         strokeWidth={2.4}
                       />
                       <Text
                         style={[
                           styles.folderRowName,
+                          { color: theme.text },
                           isSelected && styles.folderRowNameSelected,
                         ]}
                       >
@@ -267,8 +391,18 @@ export default function OnboardingScreen() {
 
             <View style={styles.saveBtnWrapper}>
               {demoStage === 3 && (
-                <View style={styles.saveHintTooltip}>
-                  <Text style={styles.saveHintText}>↓ Sekarang ketuk Simpan</Text>
+                <View
+                  style={[
+                    styles.saveHintTooltip,
+                    {
+                      backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                      borderColor: isDark ? "#4A4640" : "#000000",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.saveHintText, { color: theme.text }]}>
+                    ↓ Sekarang ketuk Simpan
+                  </Text>
                 </View>
               )}
               <NeoButton
@@ -380,7 +514,13 @@ export default function OnboardingScreen() {
 
         {/* Neobrutalist Rotated Focus Card */}
         <TouchableOpacity
-          style={styles.focusCard}
+          style={[
+            styles.focusCard,
+            {
+              backgroundColor: isDark ? "#242220" : "#FFFFFF",
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+          ]}
           activeOpacity={0.9}
           onPress={() => {
             Haptics.selectionAsync();
@@ -395,18 +535,51 @@ export default function OnboardingScreen() {
           </View>
 
           <View style={styles.focusMetaRow}>
-            <Text style={styles.focusSourceText}>{item.source}</Text>
+            <Text
+              style={[
+                styles.focusSourceText,
+                { color: isDark ? "#A09A8F" : "#666158" },
+              ]}
+            >
+              {item.source}
+            </Text>
             <View style={styles.focusCollectionBadge}>
               <Text style={styles.focusCollectionText}>{item.collection}</Text>
             </View>
           </View>
 
-          <Text style={styles.focusCardTitle}>{item.title}</Text>
-          <Text style={styles.focusCardDesc}>{item.desc}</Text>
+          <Text
+            style={[
+              styles.focusCardTitle,
+              { color: isDark ? "#FFFFFF" : "#000000" },
+            ]}
+          >
+            {item.title}
+          </Text>
+          <Text
+            style={[
+              styles.focusCardDesc,
+              { color: isDark ? "#D1CCC2" : "#555555" },
+            ]}
+          >
+            {item.desc}
+          </Text>
 
           {item.tag && (
-            <View style={styles.focusTagBadge}>
-              <Text style={styles.focusTagText}>{item.tag}</Text>
+            <View
+              style={[
+                styles.focusTagBadge,
+                { backgroundColor: isDark ? "#33302C" : "#EEEEEE" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.focusTagText,
+                  { color: isDark ? "#FFFFFF" : "#000000" },
+                ]}
+              >
+                {item.tag}
+              </Text>
             </View>
           )}
         </TouchableOpacity>
@@ -471,10 +644,20 @@ export default function OnboardingScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
         <View style={styles.onboardTop}>
           <TouchableOpacity onPress={prevStep} style={styles.plainBtn}>
-            <ChevronLeft size={24} color="#000000" />
+            <ChevronLeft size={24} color={theme.text} />
           </TouchableOpacity>
-          <View style={styles.stepBadge}>
-            <Text style={styles.stepBadgeText}>8 / 8</Text>
+          <View
+            style={[
+              styles.stepBadge,
+              {
+                backgroundColor: isDark ? "#2A2724" : "#FFFFFF",
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+            ]}
+          >
+            <Text style={[styles.stepBadgeText, { color: theme.text }]}>
+              8 / 8
+            </Text>
           </View>
           <View style={styles.plainBtn} />
         </View>
@@ -485,39 +668,70 @@ export default function OnboardingScreen() {
         >
           <View style={styles.readyCenter}>
             <SimpanInMascot size={84} />
-            <Text style={styles.readyTitle}>Semua Siap, Waktunya Rapi!</Text>
-            <Text style={styles.readySub}>
+            <Text style={[styles.readyTitle, { color: theme.text }]}>
+              Semua Siap, Waktunya Rapi!
+            </Text>
+            <Text style={[styles.readySub, { color: theme.textSecondary }]}>
               Satu tempat terpusat untuk semua link, artikel, dan inspirasi pentingmu. Selamat tinggal tumpukan tab dan screenshot.
             </Text>
 
             {/* Core Values Card */}
-            <View style={styles.readyCardBox}>
+            <View
+              style={[
+                styles.readyCardBox,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
               {coreValues.map((item, idx) => (
                 <View
                   key={item.title}
                   style={[
                     styles.readyRowItem,
-                    idx < coreValues.length - 1 && styles.readyRowBorder,
+                    idx < coreValues.length - 1 && [
+                      styles.readyRowBorder,
+                      { borderBottomColor: isDark ? "#3A3630" : "#EAE6DE" },
+                    ],
                   ]}
                 >
                   <View style={[styles.readyIconBadge, { backgroundColor: item.bg }]}>
                     {item.icon}
                   </View>
                   <View style={styles.readyTextCol}>
-                    <Text style={styles.readyItemTitle}>{item.title}</Text>
-                    <Text style={styles.readyItemDesc}>{item.desc}</Text>
+                    <Text style={[styles.readyItemTitle, { color: theme.text }]}>
+                      {item.title}
+                    </Text>
+                    <Text style={[styles.readyItemDesc, { color: theme.textSecondary }]}>
+                      {item.desc}
+                    </Text>
                   </View>
                 </View>
               ))}
             </View>
 
             {/* Quick Practical Tip */}
-            <View style={styles.quickTipCard}>
+            <View
+              style={[
+                styles.quickTipCard,
+                {
+                  backgroundColor: isDark ? "#282522" : "#F5F0E8",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
               <View style={styles.quickTipHeader}>
-                <Lightbulb size={16} color="#000000" strokeWidth={2.5} />
-                <Text style={styles.quickTipBadgeText}>TIPS AWAL</Text>
+                <Lightbulb
+                  size={16}
+                  color={isDark ? "#F7CB54" : "#000000"}
+                  strokeWidth={2.5}
+                />
+                <Text style={[styles.quickTipBadgeText, { color: theme.text }]}>
+                  TIPS AWAL
+                </Text>
               </View>
-              <Text style={styles.quickTipBody}>
+              <Text style={[styles.quickTipBody, { color: isDark ? "#D1CCC2" : "#44403C" }]}>
                 Coba buka link artikel atau video yang sedang kamu nikmati, lalu pilih Bagikan (Share) langsung ke SimpanIn.
               </Text>
             </View>
@@ -538,7 +752,7 @@ export default function OnboardingScreen() {
                 {isProcessing ? "Menyiapkan SimpanIn..." : "Mulai Gunakan SimpanIn →"}
               </NeoButton>
 
-              <Text style={styles.readyFootnote}>
+              <Text style={[styles.readyFootnote, { color: theme.textMuted }]}>
                 Gratis · Tanpa Perlu Akun · Tersimpan di Perangkatmu
               </Text>
             </View>
@@ -596,16 +810,26 @@ export default function OnboardingScreen() {
       <View style={styles.onboardTop}>
         {step > 0 ? (
           <TouchableOpacity onPress={prevStep} style={styles.plainBtn}>
-            <ChevronLeft size={24} color="#000000" />
+            <ChevronLeft size={24} color={theme.text} />
           </TouchableOpacity>
         ) : (
           <View style={styles.plainBtn} />
         )}
-        <View style={styles.stepBadge}>
-          <Text style={styles.stepBadgeText}>{step + 1} / 8</Text>
+        <View
+          style={[
+            styles.stepBadge,
+            {
+              backgroundColor: isDark ? "#2A2724" : "#FFFFFF",
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+          ]}
+        >
+          <Text style={[styles.stepBadgeText, { color: theme.text }]}>
+            {step + 1} / 8
+          </Text>
         </View>
         <TouchableOpacity onPress={skipToFinal}>
-          <Text style={styles.textBtn}>Lewati</Text>
+          <Text style={[styles.textBtn, { color: theme.text }]}>Lewati</Text>
         </TouchableOpacity>
       </View>
 
@@ -613,15 +837,21 @@ export default function OnboardingScreen() {
       <View style={styles.onboardCopy}>
         {step === 1 ? (
           <View style={styles.titleWithHighlightRow}>
-            <Text style={styles.headlineTitle}>Kamu menyimpannya. </Text>
+            <Text style={[styles.headlineTitle, { color: theme.text }]}>
+              Kamu menyimpannya.{" "}
+            </Text>
             <View style={styles.highlightPill}>
               <Text style={styles.highlightPillText}>Lalu hilang.</Text>
             </View>
           </View>
         ) : (
-          <Text style={styles.headlineTitle}>{slide.title}</Text>
+          <Text style={[styles.headlineTitle, { color: theme.text }]}>
+            {slide.title}
+          </Text>
         )}
-        <Text style={styles.headlineSub}>{slide.sub}</Text>
+        <Text style={[styles.headlineSub, { color: theme.textSecondary }]}>
+          {slide.sub}
+        </Text>
       </View>
 
       {/* Slide Art Section */}
@@ -629,15 +859,29 @@ export default function OnboardingScreen() {
         {/* SLIDE 0: Unopened Art */}
         {slide.art === "unopened" && (
           <View style={styles.unopenedArtWrapper}>
-            <View style={styles.saveCard}>
+            <View
+              style={[
+                styles.saveCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
               <View style={styles.unopenedBadge}>
                 <Text style={styles.unopenedBadgeText}>BELUM DIBUKA</Text>
               </View>
               <View style={styles.miniFood}>
                 <Text style={styles.miniFoodNumber}>15'</Text>
               </View>
-              <Text style={styles.saveCardTimestamp}>Disimpan 42 hari lalu</Text>
-              <Text style={styles.saveCardTitle}>Resep makan malam kilat</Text>
+              <Text
+                style={[styles.saveCardTimestamp, { color: theme.textMuted }]}
+              >
+                Disimpan 42 hari lalu
+              </Text>
+              <Text style={[styles.saveCardTitle, { color: theme.text }]}>
+                Resep makan malam kilat
+              </Text>
             </View>
             <View style={styles.unopenedMascotPos}>
               <SimpanInMascot size={74} />
@@ -648,25 +892,96 @@ export default function OnboardingScreen() {
         {/* SLIDE 1: Scattered Badges Art */}
         {slide.art === "scattered" && (
           <View style={styles.scatteredWrapper}>
-            <View style={[styles.floatPill, styles.f1]}>
-              <Text style={styles.floatPillText}>Instagram</Text>
+            <View
+              style={[
+                styles.floatPill,
+                styles.f1,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.floatPillText, { color: theme.text }]}>
+                Instagram
+              </Text>
             </View>
-            <View style={[styles.floatPill, styles.f2]}>
-              <Text style={styles.floatPillText}>TikTok</Text>
+            <View
+              style={[
+                styles.floatPill,
+                styles.f2,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.floatPillText, { color: theme.text }]}>
+                TikTok
+              </Text>
             </View>
-            <View style={[styles.floatPill, styles.f3]}>
-              <Text style={styles.floatPillText}>X</Text>
+            <View
+              style={[
+                styles.floatPill,
+                styles.f3,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.floatPillText, { color: theme.text }]}>X</Text>
             </View>
-            <View style={[styles.floatPill, styles.f4]}>
-              <Text style={styles.floatPillText}>Chrome</Text>
+            <View
+              style={[
+                styles.floatPill,
+                styles.f4,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.floatPillText, { color: theme.text }]}>
+                Chrome
+              </Text>
             </View>
-            <View style={[styles.floatPill, styles.f5]}>
-              <Text style={styles.floatPillText}>Threads</Text>
+            <View
+              style={[
+                styles.floatPill,
+                styles.f5,
+                {
+                  backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text style={[styles.floatPillText, { color: theme.text }]}>
+                Threads
+              </Text>
             </View>
 
-            <View style={[styles.saveCard, styles.saveCardScattered]}>
-              <Text style={styles.saveCardCategoryLabel}>INSTAGRAM REEL</Text>
-              <Text style={styles.saveCardTitle}>Resep makan malam kilat</Text>
+            <View
+              style={[
+                styles.saveCard,
+                styles.saveCardScattered,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.saveCardCategoryLabel,
+                  { color: theme.textMuted },
+                ]}
+              >
+                INSTAGRAM REEL
+              </Text>
+              <Text style={[styles.saveCardTitle, { color: theme.text }]}>
+                Resep makan malam kilat
+              </Text>
               <View style={[styles.miniFood, { height: 95 }]}>
                 <Text style={[styles.miniFoodNumber, { fontSize: 34 }]}>15'</Text>
               </View>
@@ -681,12 +996,37 @@ export default function OnboardingScreen() {
               <View style={styles.meetMascotPos}>
                 <SimpanInMascot size={88} />
               </View>
-              <View style={styles.foundCard}>
-                <Text style={styles.foundCardCategory}>Sudah ketemu</Text>
-                <Text style={styles.foundCardTitle}>Resep makan malam kilat</Text>
+              <View
+                style={[
+                  styles.foundCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+              >
+                <Text
+                  style={[styles.foundCardCategory, { color: theme.textMuted }]}
+                >
+                  Sudah ketemu
+                </Text>
+                <Text style={[styles.foundCardTitle, { color: theme.text }]}>
+                  Resep makan malam kilat
+                </Text>
                 <View style={styles.foundCheckRow}>
-                  <Check size={18} color="#087E59" strokeWidth={3.5} />
-                  <Text style={styles.foundCheckText}>Ketemu!</Text>
+                  <Check
+                    size={18}
+                    color={isDark ? "#34D399" : "#087E59"}
+                    strokeWidth={3.5}
+                  />
+                  <Text
+                    style={[
+                      styles.foundCheckText,
+                      { color: isDark ? "#34D399" : "#087E59" },
+                    ]}
+                  >
+                    Ketemu!
+                  </Text>
                 </View>
               </View>
             </View>
@@ -696,18 +1036,37 @@ export default function OnboardingScreen() {
         {/* SLIDE 4: Preview Art */}
         {slide.art === "preview" && (
           <View style={styles.previewWrapper}>
-            <View style={styles.detailPreviewCard}>
+            <View
+              style={[
+                styles.detailPreviewCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
               <View style={styles.miniFoodBig}>
                 <Text style={[styles.miniFoodNumber, { fontSize: 48 }]}>15'</Text>
               </View>
-              <Text style={styles.previewSourceText}>social.example</Text>
-              <Text style={styles.previewTitleText}>Resep makan malam kilat</Text>
+              <Text
+                style={[styles.previewSourceText, { color: theme.textMuted }]}
+              >
+                social.example
+              </Text>
+              <Text style={[styles.previewTitleText, { color: theme.text }]}>
+                Resep makan malam kilat
+              </Text>
               <View style={styles.previewCollectionTag}>
                 <Text style={styles.previewCollectionTagText}>Resep</Text>
               </View>
             </View>
 
-            <View style={styles.previewSheetPill}>
+            <View
+              style={[
+                styles.previewSheetPill,
+                { borderColor: isDark ? "#4A4640" : "#000000" },
+              ]}
+            >
               <SimpanInMascot small size={28} />
               <Check size={18} color="#000000" strokeWidth={3} />
             </View>
@@ -716,15 +1075,42 @@ export default function OnboardingScreen() {
 
         {/* SLIDE 6: Lockscreen Notification Mockup */}
         {slide.art === "notification" && (
-          <View style={styles.lockscreen}>
+          <View
+            style={[
+              styles.lockscreen,
+              { borderColor: isDark ? "#4A4640" : "#000000" },
+            ]}
+          >
             <Text style={styles.lockDate}>Selasa, 29 September</Text>
             <Text style={styles.lockTime}>9:41</Text>
 
-            <View style={styles.notificationBubble}>
+            <View
+              style={[
+                styles.notificationBubble,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(36, 34, 32, 0.95)"
+                    : "rgba(255, 255, 255, 0.95)",
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+              ]}
+            >
               <SimpanInMascot small size={36} />
               <View style={styles.notifTextCol}>
-                <Text style={styles.notifStrong}>SimpanIn · Pengingat Santai</Text>
-                <Text style={styles.notifPara}>
+                <Text
+                  style={[
+                    styles.notifStrong,
+                    { color: isDark ? "#FFFFFF" : "#000000" },
+                  ]}
+                >
+                  SimpanIn · Pengingat Santai
+                </Text>
+                <Text
+                  style={[
+                    styles.notifPara,
+                    { color: isDark ? "#D1CCC2" : "#333333" },
+                  ]}
+                >
                   Ada simpanan yang belum sempat kamu baca. Luangkan 2 menit untuk melihatnya.
                 </Text>
               </View>
@@ -775,7 +1161,11 @@ export default function OnboardingScreen() {
               key={i}
               style={[
                 styles.dotItem,
-                i === step && styles.dotItemActive,
+                { backgroundColor: isDark ? "#4A4640" : "#C9C4BC" },
+                i === step && [
+                  styles.dotItemActive,
+                  { backgroundColor: isDark ? "#F7CB54" : "#111111" },
+                ],
               ]}
             />
           ))}
