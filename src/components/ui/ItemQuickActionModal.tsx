@@ -18,6 +18,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 export interface ItemActionTarget {
   item: SavedItem;
   rect: ItemLayoutRect;
+  layout?: "grid" | "horizontal";
 }
 
 interface ItemQuickActionModalProps {
@@ -111,6 +112,7 @@ export function ItemQuickActionModal({
         >
           <FigmaItemCard
             item={target.item}
+            layout={target.layout}
             onPress={() => {
               onClose();
               onOpenDetail(target.item);
