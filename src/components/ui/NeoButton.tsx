@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   Text,
   Pressable,
+  Animated,
   StyleSheet,
   ViewStyle,
   TextStyle,
@@ -33,8 +34,29 @@ export function NeoButton({
   icon,
 }: NeoButtonProps) {
   const [isPressed, setIsPressed] = useState(false);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+
+  const handlePressIn = () => {
+    setIsPressed(true);
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 6,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    setIsPressed(false);
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 6,
+    }).start();
+  };
 
   const handlePress = () => {
     if (disabled) return;
@@ -79,38 +101,40 @@ export function NeoButton({
   };
 
   return (
-    <Pressable
-      disabled={disabled}
-      onPress={handlePress}
-      onPressIn={() => setIsPressed(true)}
-      onPressOut={() => setIsPressed(false)}
-      style={[
-        styles.button,
-        styles[size],
-        {
-          backgroundColor: getBackgroundColor(),
-          borderColor: isDark ? (variant === "ghost" ? "transparent" : "#4A4640") : (variant === "ghost" ? "transparent" : "#000000"),
-        },
-        variant !== "ghost" && !disabled && (isPressed ? styles.pressedOffset : NEO_SHADOW_SM),
-        style,
-      ]}
-    >
-      {icon}
-      {React.isValidElement(children) ? (
-        children
-      ) : (
-        <Text
-          style={[
-            styles.text,
-            styles[`text_${size}`],
-            { color: getTextColor() },
-            textStyle,
-          ]}
-        >
-          {children}
-        </Text>
-      )}
-    </Pressable>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <Pressable
+        disabled={disabled}
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.button,
+          styles[size],
+          {
+            backgroundColor: getBackgroundColor(),
+            borderColor: isDark ? (variant === "ghost" ? "transparent" : "#4A4640") : (variant === "ghost" ? "transparent" : "#000000"),
+          },
+          variant !== "ghost" && !disabled && (isPressed ? styles.pressedOffset : NEO_SHADOW_SM),
+          style,
+        ]}
+      >
+        {icon}
+        {React.isValidElement(children) ? (
+          children
+        ) : (
+          <Text
+            style={[
+              styles.text,
+              styles[`text_${size}`],
+              { color: getTextColor() },
+              textStyle,
+            ]}
+          >
+            {children}
+          </Text>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
