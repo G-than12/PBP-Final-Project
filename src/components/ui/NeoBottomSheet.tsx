@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
@@ -30,21 +31,43 @@ export function NeoBottomSheet({
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
   const insets = useSafeAreaInsets();
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Ensure plenty of bottom padding for both physical devices and browser simulator extensions
-  const safeBottomPadding = Math.max(
-    insets.bottom,
-    Platform.OS === "web" ? 38 : 24
-  ) + 20;
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(0);
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        tension: 75,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  const safeBottomPadding = Math.max(insets.bottom, 16) + 8;
 
   return (
     <Modal
+      key={isDark ? "dark" : "light"}
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <Animated.View
+        style={[
+          styles.overlay,
+          {
+            opacity: slideAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 1],
+            }),
+          },
+        ]}
+      >
         {/* Backdrop overlay */}
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={StyleSheet.absoluteFill} />
@@ -52,15 +75,32 @@ export function NeoBottomSheet({
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: theme.surface,
-              borderColor: isDark ? "#4A4640" : "#000000",
-              paddingBottom: safeBottomPadding,
-            },
-          ]}
+          style={styles.keyboardWrap}
         >
+          <Animated.View
+            style={[
+              styles.sheetContainer,
+              {
+                backgroundColor: theme.surface,
+                borderColor: isDark ? "#4A4640" : "#000000",
+                paddingBottom: safeBottomPadding,
+                transform: [
+                  {
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [120, 0],
+                    }),
+                  },
+                  {
+                    scale: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.96, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
           <View
             style={[
               styles.grabBar,
@@ -91,8 +131,9 @@ export function NeoBottomSheet({
           </View>
 
           <View style={styles.content}>{children}</View>
+          </Animated.View>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -102,6 +143,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.55)",
     justifyContent: "flex-end",
+    alignItems: "center",
+  },
+  keyboardWrap: {
+    width: "100%",
+    maxWidth: Platform.OS === "web" ? 540 : undefined,
     alignItems: "center",
   },
   sheetContainer: {
