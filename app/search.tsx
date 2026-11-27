@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,6 +29,7 @@ import { ShareCollectionSheet } from "../src/components/sheets/ShareCollectionSh
 import { CollectionFormSheet } from "../src/components/sheets/CollectionFormSheet";
 import { NeoConfirmModal } from "../src/components/ui/NeoConfirmModal";
 import { Collection, SavedItem } from "../src/types/models";
+import { resolveItemPlatform } from "../src/utils/metadataParser";
 import { safeBack } from "../src/utils/navigation";
 
 type TabType = "Ringkasan" | "Koleksi" | "Simpanan" | "Disematkan" | "Tag";
@@ -51,6 +53,17 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabType>("Ringkasan");
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const tabContentAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    tabContentAnim.setValue(0);
+    Animated.spring(tabContentAnim, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [activeTab, selectedTagFilter]);
 
   // Folder Quick Action Modal states on folder long-press
   const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
@@ -93,7 +106,7 @@ export default function SearchScreen() {
         (q.includes("deadline") || q.includes("tenggat") || q.includes("lomba"));
       return (
         deadlineMatch ||
-        `${x.title} ${x.source} ${x.description} ${x.notes} ${x.tags.join(" ")}`
+        `${x.title} ${resolveItemPlatform(x.source, x.url)} ${x.description} ${x.notes} ${x.tags.join(" ")}`
           .toLowerCase()
           .includes(q)
       );
@@ -151,11 +164,12 @@ export default function SearchScreen() {
     icon: typeof Folder;
     count: number;
     label: string;
+    activeFill: string;
   }[] = [
-    { id: "Koleksi", icon: Folder, count: collections.length, label: "Koleksi" },
-    { id: "Simpanan", icon: Bookmark, count: items.length, label: "Simpanan" },
-    { id: "Disematkan", icon: Pin, count: pinnedItems.length, label: "Disematkan" },
-    { id: "Tag", icon: Tag, count: allTags.length, label: "Tag" },
+    { id: "Koleksi", icon: Folder, count: collections.length, label: "Koleksi", activeFill: "#8FC9FF" },
+    { id: "Simpanan", icon: Bookmark, count: items.length, label: "Simpanan", activeFill: "#A6E3D1" },
+    { id: "Disematkan", icon: Pin, count: pinnedItems.length, label: "Disematkan", activeFill: "#FF8C79" },
+    { id: "Tag", icon: Tag, count: allTags.length, label: "Tag", activeFill: "#D0B7FF" },
   ];
 
   return (
@@ -216,20 +230,6 @@ export default function SearchScreen() {
             <Text style={styles.libraryLabel}>
               PUSTAKAMU
             </Text>
-
-            {/* Tombol "Ringkasan" muncul ketika memilih tab Koleksi / Simpanan / Disematkan / Tag */}
-            {activeTab !== "Ringkasan" && (
-              <TouchableOpacity
-                style={styles.summaryBtn}
-                onPress={handleReturnToRingkasan}
-                accessibilityLabel="Kembali ke Ringkasan"
-                activeOpacity={0.8}
-              >
-                <Text style={styles.summaryBtnText}>
-                  Ringkasan ↗
-                </Text>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* 4 Stat Columns (Zero-Layout-Shift Grid) */}
@@ -251,7 +251,12 @@ export default function SearchScreen() {
                     onPress={() => handleTabPress(tab.id)}
                     activeOpacity={0.75}
                   >
-                    <TabIcon size={20} color="#000000" strokeWidth={2.2} />
+                    <TabIcon
+                      size={20}
+                      color="#000000"
+                      fill={isActive ? tab.activeFill : "none"}
+                      strokeWidth={isActive ? 2.4 : 2.1}
+                    />
                     <Text style={styles.statNumber}>{tab.count}</Text>
                     <Text
                       style={styles.statLabel}
@@ -280,6 +285,25 @@ export default function SearchScreen() {
         </View>
 
         {/* Tab Content: Ringkasan (Default View) */}
+        <Animated.View
+          style={{
+            opacity: tabContentAnim,
+            transform: [
+              {
+                translateY: tabContentAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [16, 0],
+                }),
+              },
+              {
+                scale: tabContentAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.96, 1],
+                }),
+              },
+            ],
+          }}
+        >
         {activeTab === "Ringkasan" && (
           <View>
             {/* Baru Disimpan section */}
@@ -312,11 +336,21 @@ export default function SearchScreen() {
             )}
 
             {/* Search results prompt */}
-            <Text style={[styles.searchPrompt, { color: theme.textSecondary }]}>
-              {query
-                ? `${filteredItems.length + filteredCollections.length} hasil ditemukan untuk "${query}"`
-                : "Ketik sesuatu untuk mencari koleksi atau simpanan..."}
-            </Text>
+            {query ? (
+              <View style={styles.searchResultBanner}>
+                <Search size={14} color={theme.textSecondary} strokeWidth={2.2} />
+                <Text style={[styles.searchPrompt, { color: theme.textSecondary }]}>
+                  {filteredItems.length + filteredCollections.length} hasil ditemukan untuk "{query}"
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.searchHintMinimal}>
+                <Search size={15} color={theme.textMuted} strokeWidth={2.2} />
+                <Text style={[styles.searchHintMinimalText, { color: theme.textMuted }]}>
+                  Ketik untuk mencari koleksi atau simpanan...
+                </Text>
+              </View>
+            )}
 
             {/* When query is present, show matching collections and items */}
             {query.length > 0 && (
@@ -677,6 +711,7 @@ export default function SearchScreen() {
             )}
           </View>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* Folder Quick Action Modal on Long Press */}
@@ -723,7 +758,7 @@ export default function SearchScreen() {
         <NeoConfirmModal
           visible={!!targetDeletingCol}
           title={`Hapus "${targetDeletingCol.name}"?`}
-          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Utama'."
           confirmText="Ya, Hapus"
           cancelText="Batal"
           isDestructive
@@ -991,10 +1026,27 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
     marginBottom: 16,
   },
+  searchResultBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginVertical: 12,
+  },
   searchPrompt: {
     fontSize: 12,
     fontWeight: "600",
-    marginVertical: 14,
+    flexShrink: 1,
+  },
+  searchHintMinimal: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 18,
+  },
+  searchHintMinimalText: {
+    fontSize: 12.5,
+    fontWeight: "600",
   },
   matchedSection: {
     marginTop: 14,
