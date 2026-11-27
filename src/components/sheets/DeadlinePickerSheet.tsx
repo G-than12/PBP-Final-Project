@@ -164,13 +164,15 @@ export function DeadlinePickerSheet({
           ]}
         >
           <View style={styles.bannerIcon}>
-            <CalendarIcon size={20} color="#000000" strokeWidth={2.5} />
+            <CalendarIcon size={20} color={isDark ? theme.accentYellow : "#000000"} strokeWidth={2.5} />
           </View>
           <View style={styles.bannerTextCol}>
-            <Text style={styles.bannerDateText}>
+            <Text style={[styles.bannerDateText, { color: isDark ? theme.text : "#000000" }]}>
               {formatDeadlineFullDate(selectedTimestamp)}
             </Text>
-            <Text style={styles.bannerStatusText}>{deadlineStatus.label}</Text>
+            <Text style={[styles.bannerStatusText, { color: isDark ? theme.textMuted : "#222222" }]}>
+              {deadlineStatus.label}
+            </Text>
           </View>
         </View>
 
@@ -334,7 +336,13 @@ export function DeadlinePickerSheet({
                     isSelected
                       ? styles.dayCellSelected
                       : isToday
-                      ? styles.dayCellToday
+                      ? [
+                          styles.dayCellToday,
+                          {
+                            backgroundColor: theme.cardSecondary,
+                            borderColor: isDark ? theme.accentYellow : "#000000",
+                          },
+                        ]
                       : { backgroundColor: theme.cardSecondary },
                   ]}
                   onPress={() => handleSelectDay(day)}
