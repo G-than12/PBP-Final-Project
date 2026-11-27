@@ -344,8 +344,15 @@ export function SaveLinkSheet({
 
   const selectedCol = collections.find((c) => c.id === selectedColId) || collections[0];
 
+  if (!visible) return null;
+
   return (
-    <NeoBottomSheet visible={visible} title="Simpan Link" onClose={handleCloseSheet}>
+    <NeoBottomSheet
+      key={isDark ? "dark" : "light"}
+      visible={visible}
+      title="Simpan Link"
+      onClose={handleCloseSheet}
+    >
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -821,7 +828,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 84,
+    paddingBottom: 8,
   },
   inputGroup: {
     marginBottom: 16,
