@@ -26,30 +26,30 @@ export function getDescendantCollectionIds(
 
 /**
  * Menghasilkan daftar koleksi induk yang valid untuk dipilih.
- * Koleksi induk yang valid TIDAK BOLEH:
- * 1. Koleksi itu sendiri (diri sendiri)
- * 2. Subkoleksi yang berada di dalam koleksi tersebut (turunannya secara berulang)
+ * Subkoleksi dibatasi maksimal 1 tingkat (Koleksi Utama -> Subkoleksi):
+ * 1. Hanya koleksi utama (!c.parentId) yang boleh menjadi induk.
+ * 2. Jika koleksi yang diedit sudah memiliki subkoleksi, ia harus tetap menjadi koleksi utama (return []).
  */
 export function getValidParentCollections(
   editingCollection: Collection | null | undefined,
   allCollections: Collection[]
 ): Collection[] {
   if (!editingCollection) {
-    return allCollections;
+    return allCollections.filter((c) => !c.parentId);
   }
 
-  const descendantIds = getDescendantCollectionIds(
-    editingCollection.id,
-    allCollections
-  );
+  const hasChildren = allCollections.some((c) => c.parentId === editingCollection.id);
+  if (hasChildren) {
+    return [];
+  }
 
   return allCollections.filter(
-    (c) => c.id !== editingCollection.id && !descendantIds.has(c.id)
+    (c) => !c.parentId && c.id !== editingCollection.id
   );
 }
 
 /**
- * Memvalidasi apakah target parentId aman untuk dijadikan induk bagi collectionId.
+ * Memvalidasi apakah target parentId aman untuk dijadikan induk bagi collectionId (maksimal 1 tingkat subkoleksi).
  */
 export function isValidParentChoice(
   collectionId: string,
@@ -59,8 +59,11 @@ export function isValidParentChoice(
   if (!targetParentId) return true; // null/undefined selalu aman (menjadi koleksi utama)
   if (targetParentId === collectionId) return false; // tidak boleh menjadi induk dirinya sendiri
 
-  const descendantIds = getDescendantCollectionIds(collectionId, allCollections);
-  return !descendantIds.has(targetParentId);
+  const hasChildren = allCollections.some((c) => c.parentId === collectionId);
+  if (hasChildren) return false;
+
+  const targetParent = allCollections.find((c) => c.id === targetParentId);
+  return Boolean(targetParent && !targetParent.parentId);
 }
 
 /**
@@ -96,7 +99,15 @@ export function sanitizeCollectionHierarchy(collections: Collection[]): Collecti
         // Induk tidak ditemukan di database! Putuskan referensi ke root
         return { ...col, parentId: null };
       }
-      currParentId = parentCol.parentId || null;
+      if (parentCol.parentId) {
+        // Batasi maksimal 1 tingkat subkoleksi: jika induknya juga punya induk, tarik ke induk teratas
+        currParentId = parentCol.parentId;
+        continue;
+      }
+      if (currParentId !== col.parentId) {
+        return { ...col, parentId: currParentId };
+      }
+      break;
     }
 
     return col;
