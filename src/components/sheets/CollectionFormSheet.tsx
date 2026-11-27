@@ -117,8 +117,11 @@ export function CollectionFormSheet({
     onClose();
   };
 
+  if (!visible) return null;
+
   return (
     <NeoBottomSheet
+      key={isDark ? "dark" : "light"}
       visible={visible}
       title={
         editingCollection
