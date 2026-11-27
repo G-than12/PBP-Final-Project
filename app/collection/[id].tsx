@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   Pressable,
   Dimensions,
+  Animated,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -87,6 +88,17 @@ export default function CollectionScreen() {
 
   // Sorting & filtering dropdown state
   const [sortOption, setSortOption] = useState<SortOption>("newest");
+  const listAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    listAnim.setValue(0);
+    Animated.spring(listAnim, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [id, filterType, sortOption]);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [sortMenuPos, setSortMenuPos] = useState({ top: 0, right: 0 });
   const sortBtnRef = useRef<View>(null);
@@ -160,10 +172,13 @@ export default function CollectionScreen() {
     return collections.find((c) => c.id === currentCollection.parentId) || null;
   }, [collections, currentCollection]);
 
-  // Subcollections nested inside this collection
+  const isSubcollection = Boolean(currentCollection.parentId);
+
+  // Subcollections nested inside this collection (only 1 level allowed)
   const subcollections = useMemo(() => {
+    if (isSubcollection) return [];
     return collections.filter((c) => c.parentId === id);
-  }, [collections, id]);
+  }, [collections, id, isSubcollection]);
 
   // Items directly inside this collection
   const collectionItems = useMemo(() => {
@@ -228,7 +243,7 @@ export default function CollectionScreen() {
             if (!currentCollection.parentId) {
               router.replace("/home");
             } else {
-              safeBack(router, "/home");
+              safeBack(router, `/collection/${currentCollection.parentId}`);
             }
           }}
           accessibilityLabel="Kembali"
@@ -241,7 +256,9 @@ export default function CollectionScreen() {
             {currentCollection.name}
           </Text>
           <Text style={[styles.headerSub, { color: theme.textMuted }]}>
-            {collectionItems.length} simpanan · {subcollections.length} subkoleksi
+            {isSubcollection
+              ? `${collectionItems.length} simpanan`
+              : `${collectionItems.length} simpanan · ${subcollections.length} subkoleksi`}
           </Text>
         </View>
 
@@ -289,24 +306,14 @@ export default function CollectionScreen() {
             <AppIcon name={currentCollection.icon} size={24} color="#000000" />
           </View>
           <View style={styles.bannerTextCol}>
-            <Text style={styles.bannerTag}>KOLEKSI</Text>
+            <Text style={styles.bannerTag}>
+              {parentCollection ? `SUBKOLEKSI · ${parentCollection.name.toUpperCase()}` : "KOLEKSI"}
+            </Text>
             <Text style={styles.bannerTitle} numberOfLines={1}>
               {currentCollection.name}
             </Text>
           </View>
         </View>
-
-        {/* Parent Breadcrumb if this is a subcollection */}
-        {parentCollection && (
-          <TouchableOpacity
-            style={styles.breadcrumbBar}
-            onPress={() => router.push(`/collection/${parentCollection.id}`)}
-          >
-            <Text style={[styles.breadcrumbText, { color: theme.textSecondary }]}>
-              ← Kembali ke {parentCollection.name}
-            </Text>
-          </TouchableOpacity>
-        )}
 
         {/* Search in this collection */}
         <View
@@ -333,8 +340,8 @@ export default function CollectionScreen() {
           )}
         </View>
 
-        {/* Subcollections Section (UNLIMITED) */}
-        {subcollections.length > 0 && (
+        {/* Subcollections Section (1 level under root collection) */}
+        {!isSubcollection && subcollections.length > 0 && (
           <View style={styles.subSection}>
             <View style={styles.subHead}>
               <Text style={[styles.sectionLabel, { color: theme.text }]}>
@@ -358,11 +365,16 @@ export default function CollectionScreen() {
             <View style={styles.subGrid}>
               {subcollections.map((sub) => {
                 const subItemCount = items.filter((it) => it.collectionId === sub.id).length;
+                const subFreshCount = items.filter(
+                  (it) => it.collectionId === sub.id && !it.isReviewed
+                ).length;
                 return (
                   <View key={sub.id} style={styles.gridHalf}>
                     <ManilaFolderCard
                       collection={sub}
                       itemCount={subItemCount}
+                      freshCount={subFreshCount}
+                      showSubcollectionCount={false}
                       onPress={() => router.push(`/collection/${sub.id}`)}
                       onLongPress={(rect) => {
                         setActionTarget({
@@ -391,6 +403,7 @@ export default function CollectionScreen() {
                 ref={filterBtnRef as any}
                 style={[
                   styles.sortPill,
+                  styles.filterDropdownPill,
                   {
                     backgroundColor: filterType !== "all" ? "#F7CB54" : theme.surface,
                     borderColor: filterType !== "all" ? "#000000" : isDark ? "#4A4640" : "#000000",
@@ -412,6 +425,7 @@ export default function CollectionScreen() {
                     styles.sortPillText,
                     { color: filterType !== "all" ? "#000000" : theme.text },
                   ]}
+                  numberOfLines={1}
                 >
                   {filterType === "all"
                     ? "Semua"
@@ -432,6 +446,7 @@ export default function CollectionScreen() {
                 ref={sortBtnRef as any}
                 style={[
                   styles.sortPill,
+                  styles.sortDropdownPill,
                   {
                     backgroundColor: theme.surface,
                     borderColor: isDark ? "#4A4640" : "#000000",
@@ -443,7 +458,7 @@ export default function CollectionScreen() {
                   openSortMenu();
                 }}
               >
-                <Text style={[styles.sortPillText, { color: theme.text }]}>
+                <Text style={[styles.sortPillText, { color: theme.text }]} numberOfLines={1}>
                   {sortOption === "newest"
                     ? "Terbaru"
                     : sortOption === "oldest"
@@ -558,7 +573,28 @@ export default function CollectionScreen() {
             )}
           </View>
         ) : (
-          <View style={styles.itemGrid}>
+          <Animated.View
+            style={[
+              styles.itemGrid,
+              {
+                opacity: listAnim,
+                transform: [
+                  {
+                    translateY: listAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [16, 0],
+                    }),
+                  },
+                  {
+                    scale: listAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.97, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             {displayedItems.map((item, index) => (
               <View key={`${item.id}-${index}`} style={styles.gridHalf}>
                 <FigmaItemCard
@@ -574,7 +610,7 @@ export default function CollectionScreen() {
                 />
               </View>
             ))}
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
 
@@ -616,23 +652,25 @@ export default function CollectionScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenuSheet(false);
-              setShowSubSheet(true);
-            }}
-          >
-            <View style={[styles.menuIconSquare, { backgroundColor: "#A6E3D1" }]}>
-              <FolderPlus size={18} color="#000000" />
-            </View>
-            <View style={styles.menuItemTextCol}>
-              <Text style={[styles.menuItemTitle, { color: theme.text }]}>Tambah Subkoleksi</Text>
-              <Text style={[styles.menuItemSub, { color: theme.textMuted }]}>
-                Buat subfolder di dalam koleksi ini
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {!isSubcollection && (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenuSheet(false);
+                setShowSubSheet(true);
+              }}
+            >
+              <View style={[styles.menuIconSquare, { backgroundColor: "#A6E3D1" }]}>
+                <FolderPlus size={18} color="#000000" />
+              </View>
+              <View style={styles.menuItemTextCol}>
+                <Text style={[styles.menuItemTitle, { color: theme.text }]}>Tambah Subkoleksi</Text>
+                <Text style={[styles.menuItemSub, { color: theme.textMuted }]}>
+                  Buat subfolder di dalam koleksi ini
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.menuItem}
@@ -684,7 +722,7 @@ export default function CollectionScreen() {
               <View style={styles.menuItemTextCol}>
                 <Text style={[styles.menuItemTitle, { color: "#EF4444" }]}>Hapus Koleksi</Text>
                 <Text style={[styles.menuItemSub, { color: theme.textMuted }]}>
-                  Hapus folder ini (link akan dipindah ke Belum Diurutkan)
+                  Hapus folder ini (link akan dipindah ke Utama)
                 </Text>
               </View>
             </TouchableOpacity>
@@ -715,10 +753,11 @@ export default function CollectionScreen() {
         existingCollections={collections}
         onClose={() => setShowEditSheet(false)}
         onSave={(data) => {
+          const wasSubcollection = Boolean(currentCollection.parentId);
           updateCollection(currentCollection.id, data);
           setShowEditSheet(false);
-          // Jika diubah menjadi koleksi utama (tanpa induk), arahkan langsung ke /home
-          if (!data.parentId) {
+          // Jika subkoleksi diubah menjadi koleksi utama (tanpa induk), arahkan langsung ke /home
+          if (wasSubcollection && !data.parentId) {
             router.replace("/home");
           }
         }}
@@ -759,7 +798,7 @@ export default function CollectionScreen() {
       <NeoConfirmModal
         visible={showDeleteConfirm}
         title={`Hapus "${currentCollection.name}"?`}
-        message="Folder ini akan dihapus. Semua link di dalamnya akan dipindahkan ke folder 'Belum Diurutkan'."
+        message="Folder ini akan dihapus. Semua link di dalamnya akan dipindahkan ke folder 'Utama'."
         confirmText="Hapus Koleksi"
         cancelText="Batal"
         isDestructive
@@ -812,7 +851,7 @@ export default function CollectionScreen() {
         <NeoConfirmModal
           visible={!!targetDeletingCol}
           title={`Hapus "${targetDeletingCol.name}"?`}
-          message="Subkoleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          message="Subkoleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Utama'."
           confirmText="Ya, Hapus"
           cancelText="Batal"
           isDestructive
@@ -1300,6 +1339,47 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
+    rowGap: 10,
+  },
+  compactSubCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 2,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+  },
+  compactSubCardShadow: {
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
+    elevation: 2,
+  },
+  compactSubCardPressed: {
+    transform: [{ translateX: 1.5 }, { translateY: 1.5 }],
+  },
+  compactSubIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1.8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  compactSubTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactSubName: {
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 1,
+  },
+  compactSubCount: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   filterRow: {
     flexDirection: "row",
@@ -1486,6 +1566,7 @@ const styles = StyleSheet.create({
   sortPill: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 5,
     borderWidth: 2,
     borderRadius: 6,
@@ -1497,9 +1578,17 @@ const styles = StyleSheet.create({
     shadowRadius: 0,
     elevation: 2,
   },
+  filterDropdownPill: {
+    width: 144,
+  },
+  sortDropdownPill: {
+    width: 108,
+  },
   sortPillText: {
     fontSize: 11,
     fontWeight: "800",
+    flex: 1,
+    textAlign: "left",
   },
   sortModalOverlay: {
     position: "absolute",
