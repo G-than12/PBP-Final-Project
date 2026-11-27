@@ -35,7 +35,12 @@
       "output": "static"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "apiRoutes": true
+        }
+      ],
       "expo-sharing",
       "expo-status-bar",
       [
