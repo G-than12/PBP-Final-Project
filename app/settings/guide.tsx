@@ -25,6 +25,7 @@ import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { NeoCard } from "../../src/components/ui/NeoCard";
 import { NeoButton } from "../../src/components/ui/NeoButton";
 import { SimpanInMascot } from "../../src/components/ui/SimpanInMascot";
+import { PlatformLogo } from "../../src/components/ui/PlatformLogo";
 import { SaveLinkSheet } from "../../src/components/sheets/SaveLinkSheet";
 import { CollectionFormSheet } from "../../src/components/sheets/CollectionFormSheet";
 import { safeBack } from "../../src/utils/navigation";
@@ -174,7 +175,7 @@ export default function GuideScreen() {
                       <Text style={[styles.stepTitle, { color: theme.text }]}>
                         {item.title}
                       </Text>
-                      <IconComp size={18} color="#000000" />
+                      <IconComp size={18} color={theme.text} />
                     </View>
                     <Text
                       style={[styles.stepDesc, { color: theme.textMuted }]}
@@ -229,12 +230,7 @@ export default function GuideScreen() {
               style={styles.platformCard}
             >
               <View style={styles.platformHeader}>
-                <View
-                  style={[
-                    styles.platformDot,
-                    { backgroundColor: p.color },
-                  ]}
-                />
+                <PlatformLogo platform={p.name} size={22} />
                 <Text style={[styles.platformName, { color: theme.text }]}>
                   {p.name}
                 </Text>
@@ -432,11 +428,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginBottom: 4,
-  },
-  platformDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
   platformName: {
     fontSize: 13,
