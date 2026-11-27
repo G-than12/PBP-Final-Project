@@ -123,7 +123,7 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
       },
       collections: [SYSTEM_COLLECTION],
       items: [],
-      sortOption: "newest",
+      sortOption: "title",
 
       setOnboarded: (val: boolean) => {
         set((state) => {
