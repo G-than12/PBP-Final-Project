@@ -150,10 +150,6 @@ export default function HomeScreen() {
   const [showCollectionSheet, setShowCollectionSheet] = useState(false);
   const [defaultColIdForSave, setDefaultColIdForSave] = useState<string | undefined>(undefined);
   const [isIncomingShare, setIsIncomingShare] = useState(false);
-  const [justSavedTarget, setJustSavedTarget] = useState<{
-    collectionName: string;
-    sourcePlatform: string;
-  } | null>(null);
 
   // System Share Target & Clipboard Auto-Detection
   const {
@@ -241,6 +237,17 @@ export default function HomeScreen() {
   const sortButtonRef = useRef<any>(null);
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [sortMenuPos, setSortMenuPos] = useState({ top: 220, right: 16 });
+  const gridAnim = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    gridAnim.setValue(0);
+    Animated.spring(gridAnim, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [sortOption]);
 
   const openSortMenu = () => {
     Haptics.selectionAsync();
@@ -273,6 +280,7 @@ export default function HomeScreen() {
   const handleQuickSubmit = () => {
     Haptics.selectionAsync();
     const extracted = extractFirstUrl(quickUrl);
+    setIsIncomingShare(false);
     if (extracted) {
       setSaveInitialUrl(extracted);
       setShowSaveSheet(true);
@@ -400,7 +408,7 @@ export default function HomeScreen() {
                 onPress={() => {
                   Haptics.selectionAsync();
                   setSaveInitialUrl(detectedClipboard.url);
-                  setIsIncomingShare(true);
+                  setIsIncomingShare(false);
                   setShowSaveSheet(true);
                   dismissDetectedClipboard();
                 }}
@@ -519,7 +527,28 @@ export default function HomeScreen() {
           </View>
 
           {/* 2-column Manila Folder Grid */}
-          <View style={styles.folderGrid}>
+          <Animated.View
+            style={[
+              styles.folderGrid,
+              {
+                opacity: gridAnim,
+                transform: [
+                  {
+                    translateY: gridAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [14, 0],
+                    }),
+                  },
+                  {
+                    scale: gridAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.97, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             {sortedCollections.map((col, index) => {
               const count = collectionStats.counts[col.id] || 0;
               const subcount = collectionStats.subcounts[col.id] || 0;
@@ -552,7 +581,7 @@ export default function HomeScreen() {
                 </View>
               );
             })}
-          </View>
+          </Animated.View>
         </View>
       </ScrollView>
 
@@ -655,6 +684,7 @@ export default function HomeScreen() {
               onPress={() => {
                 closeSpeedDial(() => {
                   setSaveInitialUrl("");
+                  setIsIncomingShare(false);
                   setShowSaveSheet(true);
                 });
               }}
@@ -702,23 +732,19 @@ export default function HomeScreen() {
           setDefaultColIdForSave(undefined);
         }}
         onSave={(data) => {
+          const shouldReturnToPreviousApp = isIncomingShare;
           addLink(data);
           setShowSaveSheet(false);
           markUrlProcessed(data.url);
           setSaveInitialUrl("");
           setDefaultColIdForSave(undefined);
-
-          const colName =
-            collections.find((c) => c.id === data.collectionId)?.name || "Koleksi";
-          const sourceName = data.source || "Aplikasi Sebelumnya";
-
-          if (isIncomingShare || Platform.OS === "android") {
-            setJustSavedTarget({
-              collectionName: colName,
-              sourcePlatform: sourceName,
-            });
-          }
           setIsIncomingShare(false);
+
+          if (shouldReturnToPreviousApp) {
+            setTimeout(() => {
+              returnToPreviousApp();
+            }, 150);
+          }
         }}
         onRequestCreateCollection={() => {
           setShowSaveSheet(false);
@@ -746,27 +772,6 @@ export default function HomeScreen() {
           }
         }}
       />
-
-      {/* Return to Previous App Prompt (e.g. Instagram/Threads) */}
-      {justSavedTarget && (
-        <NeoConfirmModal
-          visible={!!justSavedTarget}
-          title={`Tersimpan di ${justSavedTarget.collectionName}!`}
-          message={`Mau lanjut buka ${justSavedTarget.sourcePlatform}?`}
-          confirmText={`Balik ke ${justSavedTarget.sourcePlatform}`}
-          cancelText="Tetap di sini"
-          onConfirm={() => {
-            const target = justSavedTarget;
-            setJustSavedTarget(null);
-            returnToPreviousApp();
-          }}
-          onCancel={() => {
-            setJustSavedTarget(null);
-          }}
-        />
-      )}
-
-
 
       {/* Folder Quick Action Modal on Long Press */}
       <FolderQuickActionModal
@@ -809,7 +814,7 @@ export default function HomeScreen() {
         <NeoConfirmModal
           visible={!!deletingCollection}
           title={`Hapus "${deletingCollection.name}"?`}
-          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Belum Diurutkan'."
+          message="Koleksi ini akan dihapus. Semua tautan di dalamnya akan dipindahkan dengan aman ke koleksi 'Utama'."
           confirmText="Ya, Hapus"
           cancelText="Batal"
           isDestructive
@@ -1161,6 +1166,8 @@ const styles = StyleSheet.create({
   sortPill: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    width: 108,
     gap: 5,
     borderWidth: 2,
     borderRadius: 6,
@@ -1175,6 +1182,8 @@ const styles = StyleSheet.create({
   sortPillText: {
     fontSize: 11,
     fontWeight: "800",
+    flex: 1,
+    textAlign: "left",
   },
   sortModalOverlay: {
     position: "absolute",
