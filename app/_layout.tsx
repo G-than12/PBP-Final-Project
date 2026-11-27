@@ -38,6 +38,7 @@ export default function RootLayout() {
           >
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" options={{ animation: "fade", animationDuration: 250 }} />
+            <Stack.Screen name="auth" options={{ animation: "slide_from_bottom", animationDuration: 280 }} />
             <Stack.Screen name="home" options={{ animation: "fade", animationDuration: 220 }} />
             <Stack.Screen name="search" options={{ animation: "fade_from_bottom", animationDuration: 260 }} />
             <Stack.Screen name="focus" options={{ animation: "slide_from_bottom", animationDuration: 300 }} />
