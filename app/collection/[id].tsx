@@ -34,6 +34,7 @@ import {
   History,
   ArrowDownAZ,
   Check,
+  SlidersHorizontal,
 } from "lucide-react-native";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
@@ -84,28 +85,39 @@ export default function CollectionScreen() {
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Sorting state
+  // Sorting & filtering dropdown state
   const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [sortMenuVisible, setSortMenuVisible] = useState(false);
   const [sortMenuPos, setSortMenuPos] = useState({ top: 0, right: 0 });
   const sortBtnRef = useRef<View>(null);
 
-  const openSortMenu = () => {
-    if (sortBtnRef.current && (sortBtnRef.current as any).measureInWindow) {
-      (sortBtnRef.current as any).measureInWindow(
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [filterMenuPos, setFilterMenuPos] = useState({ top: 0, right: 0 });
+  const filterBtnRef = useRef<View>(null);
+
+  const openAnchoredMenu = (
+    btnRef: React.RefObject<View | null>,
+    setPos: React.Dispatch<React.SetStateAction<{ top: number; right: number }>>,
+    setVisible: React.Dispatch<React.SetStateAction<boolean>>
+  ) => {
+    if (btnRef.current && (btnRef.current as any).measureInWindow) {
+      (btnRef.current as any).measureInWindow(
         (x: number, y: number, width: number, height: number) => {
-          setSortMenuPos({
+          setPos({
             top: Math.max(50, y + height + 6),
             right: Math.max(16, SCREEN_WIDTH - (x + width)),
           });
-          setSortMenuVisible(true);
+          setVisible(true);
         }
       );
     } else {
-      setSortMenuPos({ top: 260, right: 20 });
-      setSortMenuVisible(true);
+      setPos({ top: 260, right: 20 });
+      setVisible(true);
     }
   };
+
+  const openSortMenu = () => openAnchoredMenu(sortBtnRef, setSortMenuPos, setSortMenuVisible);
+  const openFilterMenu = () => openAnchoredMenu(filterBtnRef, setFilterMenuPos, setFilterMenuVisible);
 
   // Folder Quick Action Modal for subcollections
   const [actionTarget, setActionTarget] = useState<FolderActionTarget | null>(null);
@@ -186,7 +198,11 @@ export default function CollectionScreen() {
     } else if (sortOption === "oldest") {
       result.sort((a, b) => a.createdAt - b.createdAt);
     } else if (sortOption === "title") {
-      result.sort((a, b) => a.title.localeCompare(b.title));
+      result.sort((a, b) =>
+        a.title
+          .trim()
+          .localeCompare(b.title.trim(), "id", { sensitivity: "base", numeric: true })
+      );
     }
 
     return result;
@@ -363,97 +379,55 @@ export default function CollectionScreen() {
           </View>
         )}
 
-        {/* Filter Chips - only show if collection has items */}
-        {collectionItems.length > 0 && (
-          <View style={styles.filterRow}>
-            <TouchableOpacity
-              style={[
-                styles.filterPill,
-                filterType === "all" && styles.filterPillActive,
-                { borderColor: isDark ? "#4A4640" : "#000000" },
-              ]}
-              onPress={() => setFilterType("all")}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  filterType === "all" && styles.filterPillTextActive,
-                  { color: filterType === "all" ? "#000000" : theme.text },
-                ]}
-              >
-                Semua ({collectionItems.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterPill,
-                filterType === "unreviewed" && styles.filterPillActive,
-                { borderColor: isDark ? "#4A4640" : "#000000" },
-              ]}
-              onPress={() => setFilterType("unreviewed")}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  filterType === "unreviewed" && styles.filterPillTextActive,
-                  { color: filterType === "unreviewed" ? "#000000" : theme.text },
-                ]}
-              >
-                Belum Ditinjau ({collectionItems.filter((i) => !i.isReviewed).length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterPill,
-                filterType === "pinned" && styles.filterPillActive,
-                { borderColor: isDark ? "#4A4640" : "#000000" },
-              ]}
-              onPress={() => setFilterType("pinned")}
-            >
-              <Text
-                style={[
-                  styles.filterPillText,
-                  filterType === "pinned" && styles.filterPillTextActive,
-                  { color: filterType === "pinned" ? "#000000" : theme.text },
-                ]}
-              >
-                Disematkan ({collectionItems.filter((i) => i.isPinned).length})
-              </Text>
-            </TouchableOpacity>
-
-            {collectionItems.some((i) => i.deadline) && (
-              <TouchableOpacity
-                style={[
-                  styles.filterPill,
-                  filterType === "deadline" && styles.filterPillActive,
-                  { borderColor: isDark ? "#4A4640" : "#000000" },
-                ]}
-                onPress={() => setFilterType("deadline")}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    filterType === "deadline" && styles.filterPillTextActive,
-                    { color: filterType === "deadline" ? "#000000" : theme.text },
-                  ]}
-                >
-                  Tenggat ({collectionItems.filter((i) => i.deadline).length})
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
-
-        {/* Items Section Header with count and Sort dropdown button */}
+        {/* Items Section Header with count, Filter dropdown, and Sort dropdown */}
         {collectionItems.length > 0 && (
           <View style={styles.itemsSectionHead}>
-            <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+            <Text style={[styles.sectionLabel, { color: theme.textMuted, marginBottom: 0 }]}>
               SIMPANAN ({displayedItems.length})
             </Text>
 
             <View style={styles.sortContainer}>
+              <TouchableOpacity
+                ref={filterBtnRef as any}
+                style={[
+                  styles.sortPill,
+                  {
+                    backgroundColor: filterType !== "all" ? "#F7CB54" : theme.surface,
+                    borderColor: filterType !== "all" ? "#000000" : isDark ? "#4A4640" : "#000000",
+                  },
+                ]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  openFilterMenu();
+                }}
+              >
+                <SlidersHorizontal
+                  size={12}
+                  color={filterType !== "all" ? "#000000" : theme.text}
+                  strokeWidth={2.5}
+                />
+                <Text
+                  style={[
+                    styles.sortPillText,
+                    { color: filterType !== "all" ? "#000000" : theme.text },
+                  ]}
+                >
+                  {filterType === "all"
+                    ? "Semua"
+                    : filterType === "unreviewed"
+                    ? "Belum Ditinjau"
+                    : filterType === "pinned"
+                    ? "Disematkan"
+                    : "Tenggat"}
+                </Text>
+                <ChevronDown
+                  size={13}
+                  color={filterType !== "all" ? "#000000" : theme.text}
+                  strokeWidth={2.5}
+                />
+              </TouchableOpacity>
+
               <TouchableOpacity
                 ref={sortBtnRef as any}
                 style={[
@@ -955,6 +929,153 @@ export default function CollectionScreen() {
                   Haptics.selectionAsync();
                   setSortOption(opt.id);
                   setSortMenuVisible(false);
+                }}
+              >
+                <View style={styles.sortRowLeft}>
+                  <View
+                    style={[
+                      styles.sortIconCircle,
+                      isSelected
+                        ? styles.sortIconCircleSelected
+                        : {
+                            backgroundColor: isDark ? "#33302A" : "#F5F0E8",
+                            borderColor: isDark ? "#4A4640" : "#000000",
+                          },
+                    ]}
+                  >
+                    {React.cloneElement(opt.icon, {
+                      color: isSelected
+                        ? "#000000"
+                        : isDark
+                        ? "#F7CB54"
+                        : "#000000",
+                    })}
+                  </View>
+                  <View>
+                    <Text
+                      style={[
+                        styles.sortRowLabel,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? "#F7CB54"
+                              : "#000000"
+                            : theme.text,
+                        },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.sortRowDesc,
+                        {
+                          color: isSelected
+                            ? isDark
+                              ? "#DDD6CA"
+                              : "#5A544A"
+                            : theme.textMuted,
+                        },
+                      ]}
+                    >
+                      {opt.desc}
+                    </Text>
+                  </View>
+                </View>
+
+                {isSelected && (
+                  <View style={styles.sortCheckPill}>
+                    <Check size={12} color="#000000" strokeWidth={3} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </Modal>
+
+      {/* Filter Menu Modal Dropdown */}
+      <Modal
+        transparent
+        visible={filterMenuVisible}
+        animationType="fade"
+        onRequestClose={() => setFilterMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.sortModalOverlay}
+          onPress={() => setFilterMenuVisible(false)}
+        />
+
+        <View
+          style={[
+            styles.sortDropdownCard,
+            {
+              top: filterMenuPos.top,
+              right: filterMenuPos.right,
+              backgroundColor: theme.card,
+              borderColor: isDark ? "#4A4640" : "#000000",
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.sortDropdownHead,
+              { borderBottomColor: isDark ? "#4A4640" : "#EAE6DE" },
+            ]}
+          >
+            <Text style={[styles.sortDropdownHeadText, { color: theme.textMuted }]}>
+              FILTER SIMPANAN
+            </Text>
+          </View>
+
+          {[
+            {
+              id: "all" as const,
+              label: "Semua",
+              desc: `Semua simpanan (${collectionItems.length})`,
+              icon: <Layers size={15} color="#000000" />,
+            },
+            {
+              id: "unreviewed" as const,
+              label: "Belum Ditinjau",
+              desc: `Perlu ditinjau (${collectionItems.filter((i) => !i.isReviewed).length})`,
+              icon: <CheckCircle2 size={15} color="#000000" />,
+            },
+            {
+              id: "pinned" as const,
+              label: "Disematkan",
+              desc: `Item favorit (${collectionItems.filter((i) => i.isPinned).length})`,
+              icon: <Pin size={15} color="#000000" />,
+            },
+            ...(collectionItems.some((i) => i.deadline)
+              ? [
+                  {
+                    id: "deadline" as const,
+                    label: "Tenggat",
+                    desc: `Ada pengingat (${collectionItems.filter((i) => i.deadline).length})`,
+                    icon: <Clock size={15} color="#000000" />,
+                  },
+                ]
+              : []),
+          ].map((opt, idx, arr) => {
+            const isSelected = filterType === opt.id;
+            return (
+              <TouchableOpacity
+                key={opt.id}
+                activeOpacity={0.75}
+                style={[
+                  styles.sortDropdownRow,
+                  isSelected &&
+                    (isDark
+                      ? styles.sortDropdownRowSelectedDark
+                      : styles.sortDropdownRowSelected),
+                  idx < arr.length - 1 && styles.sortDropdownRowBorder,
+                  { borderBottomColor: isDark ? "#4A4640" : "#F0ECE1" },
+                ]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  setFilterType(opt.id);
+                  setFilterMenuVisible(false);
                 }}
               >
                 <View style={styles.sortRowLeft}>
