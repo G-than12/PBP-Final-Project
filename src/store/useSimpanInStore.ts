@@ -13,6 +13,12 @@ import {
   isValidParentChoice,
   sanitizeCollectionHierarchy,
 } from "../utils/collectionHierarchy";
+import {
+  pushCollectionToSupabase,
+  deleteCollectionFromSupabase,
+  pushItemToSupabase,
+  deleteItemFromSupabase,
+} from "../services/supabaseSync";
 
 const ssrSafeStorage: StateStorage = {
   getItem: async (name) => {
@@ -37,7 +43,7 @@ const ssrSafeStorage: StateStorage = {
 
 export const SYSTEM_COLLECTION: Collection = {
   id: "inbox",
-  name: "Belum Diurutkan",
+  name: "Utama",
   color: "#8FC9FF",
   icon: "archive",
   isSystem: true,
@@ -171,6 +177,9 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           createdAt: Date.now(),
         };
         set((state) => ({ collections: [...state.collections, newCol] }));
+        if (get().settings.cloudSyncEnabled) {
+          pushCollectionToSupabase(newCol).catch(() => {});
+        }
         return newCol;
       },
 
@@ -192,6 +201,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             collections: sanitizeCollectionHierarchy(updatedCols),
           };
         });
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().collections.find((c) => c.id === id);
+          if (updated) pushCollectionToSupabase(updated).catch(() => {});
+        }
       },
 
       deleteCollection: (id) => {
@@ -219,6 +232,9 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             items: updatedItems,
           };
         });
+        if (get().settings.cloudSyncEnabled) {
+          deleteCollectionFromSupabase(id).catch(() => {});
+        }
       },
 
       addLink: ({
@@ -258,6 +274,9 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
           customReminderTime,
         };
         set((state) => ({ items: [newLink, ...state.items] }));
+        if (get().settings.cloudSyncEnabled) {
+          pushItemToSupabase(newLink).catch(() => {});
+        }
         return newLink;
       },
 
@@ -277,6 +296,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         set((state) => ({
           items: state.items.map((i) => (i.id === id ? { ...i, ...cleanUpdates } : i)),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       deleteLink: (id) => {
@@ -287,6 +310,9 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
         set((state) => ({
           items: state.items.filter((i) => i.id !== id),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          deleteItemFromSupabase(id).catch(() => {});
+        }
       },
 
       togglePin: (id) => {
@@ -295,6 +321,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             i.id === id ? { ...i, isPinned: !i.isPinned } : i
           ),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       toggleReviewed: (id) => {
@@ -303,6 +333,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             i.id === id ? { ...i, isReviewed: !i.isReviewed } : i
           ),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       moveLink: (id, targetCollectionId) => {
@@ -311,6 +345,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             i.id === id ? { ...i, collectionId: targetCollectionId } : i
           ),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       addTag: (id, rawTag) => {
@@ -323,6 +361,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             return { ...i, tags: [...i.tags, clean] };
           }),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       removeTag: (id, tagToRemove) => {
@@ -332,6 +374,10 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
             return { ...i, tags: i.tags.filter((t) => t !== tagToRemove) };
           }),
         }));
+        if (get().settings.cloudSyncEnabled) {
+          const updated = get().items.find((i) => i.id === id);
+          if (updated) pushItemToSupabase(updated).catch(() => {});
+        }
       },
 
       markLinksReviewed: (ids) => {
@@ -532,7 +578,11 @@ export const useSimpanInStore = create<SimpanInStoreState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (state.collections && Array.isArray(state.collections)) {
-            state.collections = sanitizeCollectionHierarchy(state.collections);
+            state.collections = sanitizeCollectionHierarchy(state.collections).map((c) =>
+              (c.id === SYSTEM_COLLECTION.id || c.isSystem) && c.name === "Belum Diurutkan"
+                ? { ...c, name: SYSTEM_COLLECTION.name }
+                : c
+            );
           }
           if (state.items && Array.isArray(state.items)) {
             const seenIds = new Set<string>();
