@@ -19,11 +19,20 @@ import { LinkThumbnail } from "../src/components/ui/LinkThumbnail";
 import { NeoButton } from "../src/components/ui/NeoButton";
 import { SimpanInMascot } from "../src/components/ui/SimpanInMascot";
 import { safeBack } from "../src/utils/navigation";
+import { resolveItemPlatform } from "../src/utils/metadataParser";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+function toLocalDateKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function FocusModeScreen() {
-  const { collectionId } = useLocalSearchParams<{ collectionId?: string }>();
+  const { collectionId, dateKey } = useLocalSearchParams<{
+    collectionId?: string;
+    dateKey?: string;
+  }>();
   const router = useRouter();
 
   const items = useSimpanInStore((state) => state.items);
@@ -31,15 +40,22 @@ export default function FocusModeScreen() {
   const toggleReviewed = useSimpanInStore((state) => state.toggleReviewed);
   const markLinksReviewed = useSimpanInStore((state) => state.markLinksReviewed);
 
-  // Review queue: prioritizes unreviewed links
+  // Review queue: prioritizes unreviewed links (filtered by collectionId or dateKey across all collections)
   const queue = useMemo(() => {
     let pool = [...items];
     if (collectionId) {
       pool = pool.filter((i) => i.collectionId === collectionId);
     }
+    if (dateKey) {
+      pool = pool.filter(
+        (i) =>
+          (i.createdAt && toLocalDateKey(i.createdAt) === dateKey) ||
+          (i.deadline && toLocalDateKey(i.deadline) === dateKey)
+      );
+    }
     const unreviewed = pool.filter((i) => !i.isReviewed);
     return unreviewed.length > 0 ? unreviewed : pool;
-  }, [items, collectionId]);
+  }, [items, collectionId, dateKey]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
@@ -156,7 +172,9 @@ export default function FocusModeScreen() {
       {/* Top Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerLabel}>SIMPANAN BARU</Text>
+          <Text style={styles.headerLabel}>
+            {dateKey ? `FOKUS TANGGAL · ${dateKey}` : "SIMPANAN BARU"}
+          </Text>
           <View style={styles.counterRow}>
             <Text style={styles.counterCurrent}>{currentNum}</Text>
             <Text style={styles.counterTotal}> / {totalNum}</Text>
@@ -202,9 +220,9 @@ export default function FocusModeScreen() {
         >
           {/* Card Top Row: Platform Icon + Name */}
           <View style={styles.platformRow}>
-            <PlatformLogo platform={currentItem.source} size={24} />
+            <PlatformLogo platform={resolveItemPlatform(currentItem.source, currentItem.url)} size={24} />
             <Text style={styles.platformName}>
-              {currentItem.source || "TikTok"}
+              {resolveItemPlatform(currentItem.source, currentItem.url)}
             </Text>
           </View>
 
