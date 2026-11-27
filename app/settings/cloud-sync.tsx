@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
@@ -19,9 +19,9 @@ import {
   ShieldCheck,
   RefreshCw,
   HardDrive,
-  Wifi,
   Lock,
-  CheckCircle2,
+  LogOut,
+  UserCheck,
 } from "lucide-react-native";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
@@ -29,6 +29,13 @@ import { NeoCard } from "../../src/components/ui/NeoCard";
 import { NeoButton } from "../../src/components/ui/NeoButton";
 import { SimpanInMascot } from "../../src/components/ui/SimpanInMascot";
 import { safeBack } from "../../src/utils/navigation";
+import { isSupabaseConfigured } from "../../src/lib/supabase";
+import {
+  SupabaseUserInfo,
+  getCurrentSupabaseUser,
+  signOutSupabase,
+  syncAllWithSupabase,
+} from "../../src/services/supabaseSync";
 
 export default function CloudSyncScreen() {
   const router = useRouter();
@@ -36,38 +43,33 @@ export default function CloudSyncScreen() {
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
-  const cloudSyncEnabled = useSimpanInStore(
-    (state) => state.settings.cloudSyncEnabled
-  );
+  const settings = useSimpanInStore((state) => state.settings);
+  const cloudSyncEnabled = settings.cloudSyncEnabled;
   const setCloudSync = useSimpanInStore((state) => state.setCloudSync);
   const items = useSimpanInStore((state) => state.items);
   const collections = useSimpanInStore((state) => state.collections);
+  const importDatabase = useSimpanInStore((state) => state.importDatabase);
 
+  const [user, setUser] = useState<SupabaseUserInfo | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState<string>("Belum pernah");
 
-  const handleToggleSync = (val: boolean) => {
-    Haptics.selectionAsync();
-    setCloudSync(val);
-    if (val) {
-      setLastSyncTime("Baru saja");
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+      getCurrentSupabaseUser()
+        .then((u) => setUser(u))
+        .catch(() => setUser(null));
+    }, [])
+  );
 
-  const handleManualSync = () => {
-    if (!cloudSyncEnabled) {
-      Alert.alert(
-        "Sinkronisasi Nonaktif",
-        "Aktifkan sakelar Sinkronisasi Cloud terlebih dahulu untuk memulai penyelarasan."
-      );
-      return;
-    }
-
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const runFullSync = async () => {
     setIsSyncing(true);
-
-    setTimeout(() => {
-      setIsSyncing(false);
+    try {
+      const merged = await syncAllWithSupabase(collections, items, settings);
+      importDatabase({
+        collections: merged.collections,
+        items: merged.items,
+      });
       const timeStr = new Date().toLocaleTimeString("id-ID", {
         hour: "2-digit",
         minute: "2-digit",
@@ -76,9 +78,52 @@ export default function CloudSyncScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         "Sinkronisasi Berhasil",
-        `${collections.length} koleksi dan ${items.length} tautan telah diselaraskan.`
+        `${merged.collections.length} koleksi dan ${merged.items.length} tautan telah diselaraskan dengan cloud.`
       );
-    }, 1200);
+    } catch (err: any) {
+      Alert.alert("Gagal Sinkronisasi", err?.message || "Periksa koneksi internet Anda.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    Haptics.selectionAsync();
+    await signOutSupabase();
+    setUser(null);
+    setCloudSync(false);
+    setLastSyncTime("Belum pernah");
+  };
+
+  const handleToggleSync = (val: boolean) => {
+    Haptics.selectionAsync();
+    if (val && !user) {
+      Alert.alert("Masuk Diperlukan", "Silakan masuk ke akun SimpanIn terlebih dahulu.");
+      return;
+    }
+    setCloudSync(val);
+    if (val && user) {
+      runFullSync();
+    }
+  };
+
+  const handleManualSync = () => {
+    if (!isSupabaseConfigured) {
+      Alert.alert(
+        "Cloud Belum Dikonfigurasi",
+        "Isi konfigurasi cloud di file .env terlebih dahulu."
+      );
+      return;
+    }
+    if (!user) {
+      Alert.alert("Belum Masuk", "Silakan masuk ke akun SimpanIn terlebih dahulu.");
+      return;
+    }
+    if (!cloudSyncEnabled) {
+      setCloudSync(true);
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    runFullSync();
   };
 
   return (
@@ -138,6 +183,65 @@ export default function CloudSyncScreen() {
             </View>
           </View>
         </NeoCard>
+
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>
+            AKUN SIMPANIN
+          </Text>
+
+          {!isSupabaseConfigured ? (
+            <NeoCard color={theme.card} style={styles.cardBox}>
+              <Text style={[styles.toggleTitle, { color: theme.text }]}>
+                Konfigurasi Cloud Diperlukan
+              </Text>
+              <Text style={[styles.toggleSubtitle, { color: theme.textMuted, marginTop: 4 }]}>
+                Tambahkan konfigurasi cloud di file .env untuk mengaktifkan login & sinkronisasi antar perangkat.
+              </Text>
+            </NeoCard>
+          ) : user ? (
+            <NeoCard color={theme.card} style={styles.cardBox}>
+              <View style={styles.accountRow}>
+                <View style={styles.accountBadge}>
+                  <UserCheck size={18} color="#000000" />
+                </View>
+                <View style={styles.toggleLeft}>
+                  <Text style={[styles.toggleTitle, { color: theme.text }]}>
+                    Terhubung ke Cloud
+                  </Text>
+                  <Text style={[styles.toggleSubtitle, { color: theme.textMuted }]} numberOfLines={1}>
+                    {user.email}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleSignOut}
+                  style={[styles.logoutBtn, { borderColor: isDark ? "#4A4640" : "#000000" }]}
+                >
+                  <LogOut size={15} color="#EF4444" />
+                  <Text style={styles.logoutBtnText}>Keluar</Text>
+                </TouchableOpacity>
+              </View>
+            </NeoCard>
+          ) : (
+            <NeoCard color={theme.card} style={styles.cardBox}>
+              <Text style={[styles.toggleTitle, { color: theme.text }]}>
+                Belum Masuk ke Akun
+              </Text>
+              <Text style={[styles.toggleSubtitle, { color: theme.textMuted, marginTop: 4, marginBottom: 14 }]}>
+                Masuk atau daftar akun SimpanIn untuk menyinkronkan koleksi dan link kamu ke cloud.
+              </Text>
+              <NeoButton
+                variant="primary"
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  router.push("/auth");
+                }}
+              >
+                Masuk / Daftar Akun →
+              </NeoButton>
+            </NeoCard>
+          )}
+        </View>
 
         {/* Sync Controls Section */}
         <View style={styles.section}>
@@ -422,5 +526,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "500",
+  },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  accountBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    backgroundColor: "#A6E3D1",
+    borderWidth: 2,
+    borderColor: "#000000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.8,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  logoutBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#EF4444",
+  },
+  authInput: {
+    borderWidth: 2,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13.5,
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  switchAuthBtn: {
+    marginTop: 12,
+    alignItems: "center",
+  },
+  switchAuthText: {
+    fontSize: 12.5,
+    fontWeight: "700",
   },
 });
