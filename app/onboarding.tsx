@@ -50,11 +50,14 @@ export default function OnboardingScreen() {
 
   const finishOnboarding = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (!isOnboarded) {
+    const wasFirstTime = !isOnboarded;
+    if (wasFirstTime) {
       resetToCleanDatabase();
     }
     setOnboarded(true);
-    if (router.canGoBack()) {
+    if (wasFirstTime) {
+      router.replace("/auth?from=onboarding");
+    } else if (router.canGoBack()) {
       router.back();
     } else {
       router.replace("/home");
@@ -333,7 +336,7 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
 
             <View style={styles.folderList}>
-              {["Belum Diurutkan", "Resep", "Ide rumah", "Liburan"].map((folderName) => {
+              {["Utama", "Resep", "Ide rumah", "Liburan"].map((folderName) => {
                 const isResep = folderName === "Resep";
                 const isSelected = isResep && demoStage >= 2;
                 return (
