@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Pin, Clock } from "lucide-react-native";
 import { SavedItem } from "../../types/models";
@@ -8,6 +8,7 @@ import { THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { LinkThumbnail } from "./LinkThumbnail";
 import { PlatformLogo } from "./PlatformLogo";
 import { getDeadlineStatus } from "../../utils/deadlineNumberDetector";
+import { resolveItemPlatform } from "../../utils/metadataParser";
 
 export interface ItemLayoutRect {
   x: number;
@@ -32,8 +33,27 @@ export function FigmaItemCard({
   layout = "grid",
 }: FigmaItemCardProps) {
   const cardRef = React.useRef<any>(null);
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 6,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 6,
+    }).start();
+  };
   const collections = useSimpanInStore((state) => state.collections);
   const collection = collections.find((c) => c.id === item.collectionId);
 
@@ -41,6 +61,11 @@ export function FigmaItemCard({
     if (!item.deadline) return null;
     return getDeadlineStatus(item.deadline);
   }, [item.deadline]);
+
+  const displayPlatform = React.useMemo(
+    () => resolveItemPlatform(item.source, item.url),
+    [item.source, item.url]
+  );
 
   const handlePress = () => {
     Haptics.selectionAsync();
@@ -68,20 +93,30 @@ export function FigmaItemCard({
 
   if (layout === "horizontal") {
     return (
-      <View ref={cardRef} collapsable={false} style={styles.horizontalWrap}>
+      <Animated.View
+        ref={cardRef}
+        collapsable={false}
+        style={[styles.horizontalWrap, { transform: [{ scale: scaleAnim }] }]}
+      >
         <Pressable
+          key={isDark ? "dark" : "light"}
           onPress={handlePress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
           onLongPress={onLongPress ? handleLongPress : undefined}
           delayLongPress={300}
-          style={({ pressed }) => [
-            styles.cardHorizontal,
-            {
-              backgroundColor: isDark ? "#242220" : "#FFFFFF",
-              borderColor: isDark ? "#4A4640" : "#000000",
-            },
-            pressed ? styles.pressedOffset : styles.hardShadow,
-          ]}
         >
+          {({ pressed }) => (
+            <View
+              style={[
+                styles.cardHorizontal,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: isDark ? "#4A4640" : "#000000",
+                },
+                pressed ? styles.pressedOffset : styles.hardShadow,
+              ]}
+            >
           {/* Left Visual Box */}
           <LinkThumbnail
             image={item.image}
@@ -105,12 +140,12 @@ export function FigmaItemCard({
           <View style={styles.horizontalBody}>
             <View style={styles.horizontalTopRow}>
               <View style={styles.platformLeft}>
-                <PlatformLogo platform={item.source} size={13} />
+                <PlatformLogo platform={displayPlatform} size={13} />
                 <Text
                   style={[styles.sourceText, { color: theme.textMuted }]}
                   numberOfLines={1}
                 >
-                  {item.source || "Web"}
+                  {displayPlatform}
                 </Text>
               </View>
               {showCollection && collection && (
@@ -161,26 +196,38 @@ export function FigmaItemCard({
               )}
             </View>
           </View>
+            </View>
+          )}
         </Pressable>
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View ref={cardRef} collapsable={false}>
+    <Animated.View
+      ref={cardRef}
+      collapsable={false}
+      style={{ transform: [{ scale: scaleAnim }] }}
+    >
       <Pressable
+        key={isDark ? "dark" : "light"}
         onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onLongPress={onLongPress ? handleLongPress : undefined}
         delayLongPress={300}
-        style={({ pressed }) => [
-          styles.card,
-          {
-            backgroundColor: isDark ? "#242220" : "#FFFFFF",
-            borderColor: isDark ? "#4A4640" : "#000000",
-          },
-          pressed ? styles.pressedOffset : styles.hardShadow,
-        ]}
       >
+        {({ pressed }) => (
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: theme.card,
+                borderColor: isDark ? "#4A4640" : "#000000",
+              },
+              pressed ? styles.pressedOffset : styles.hardShadow,
+            ]}
+          >
         {/* Top Visual Box */}
         <LinkThumbnail
           image={item.image}
@@ -231,12 +278,12 @@ export function FigmaItemCard({
           </Text>
           <View style={styles.platformRow}>
             <View style={styles.platformLeft}>
-              <PlatformLogo platform={item.source} size={13} />
+              <PlatformLogo platform={displayPlatform} size={13} />
               <Text
                 style={[styles.sourceText, { color: theme.textMuted }]}
                 numberOfLines={1}
               >
-                {item.source || "Web"}
+                {displayPlatform}
               </Text>
             </View>
             {showCollection && collection && (
@@ -255,8 +302,10 @@ export function FigmaItemCard({
             )}
           </View>
         </View>
+          </View>
+        )}
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -266,7 +315,7 @@ const styles = StyleSheet.create({
   },
   cardHorizontal: {
     borderWidth: 2,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 10,
     flexDirection: "row",
     alignItems: "center",
@@ -278,7 +327,7 @@ const styles = StyleSheet.create({
     height: 88,
     borderWidth: 2,
     borderColor: "#000000",
-    borderRadius: 6,
+    borderRadius: 8,
     overflow: "hidden",
   },
   horizontalBody: {
@@ -347,7 +396,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 2,
-    borderRadius: 6,
+    borderRadius: 12,
     padding: 8,
     position: "relative",
   },
@@ -365,7 +414,7 @@ const styles = StyleSheet.create({
     height: 128,
     borderWidth: 2,
     borderColor: "#000000",
-    borderRadius: 4,
+    borderRadius: 8,
   },
   freshBadge: {
     position: "absolute",
@@ -440,6 +489,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 4,
     marginTop: 5,
+    minHeight: 18,
   },
   platformLeft: {
     flexDirection: "row",
@@ -455,6 +505,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     lineHeight: 16,
+    minHeight: 32,
   },
 });
 
