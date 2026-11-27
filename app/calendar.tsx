@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Image,
   Dimensions,
+  Animated,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,11 +36,11 @@ import {
   getDeadlineStatus,
 } from "../src/utils/deadlineNumberDetector";
 import { PlatformLogo } from "../src/components/ui/PlatformLogo";
+import { resolveItemPlatform } from "../src/utils/metadataParser";
 import { LinkThumbnail } from "../src/components/ui/LinkThumbnail";
 import { SavedItem } from "../src/types/models";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const GRID_ITEM_SIZE = (SCREEN_WIDTH - 32 - 16) / 3; // 3 columns with 8px gap
 
 const MONTH_NAMES = [
   "Januari",
@@ -86,6 +87,18 @@ export default function CalendarScreen() {
 
   // Main View: Instagram-style toggle between "calendar" and "grid"
   const [mainView, setMainView] = useState<ArchiveMainView>("calendar");
+  const viewSwitchAnim = useRef(new Animated.Value(0)).current;
+  const dateListAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    viewSwitchAnim.setValue(0);
+    Animated.spring(viewSwitchAnim, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [mainView]);
 
   // Current calendar view month/year
   const today = useMemo(() => new Date(), []);
@@ -95,6 +108,16 @@ export default function CalendarScreen() {
   // Selected date key (YYYY-MM-DD)
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [selectedDateKey, setSelectedDateKey] = useState<string>(todayKey);
+
+  useEffect(() => {
+    dateListAnim.setValue(0);
+    Animated.spring(dateListAnim, {
+      toValue: 1,
+      tension: 80,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  }, [selectedDateKey]);
 
   // Map of dateKey -> items SAVED on that date (createdAt)
   const savedItemsByDate = useMemo(() => {
@@ -497,7 +520,11 @@ export default function CalendarScreen() {
                       activeOpacity={0.8}
                       onPress={() => {
                         Haptics.selectionAsync();
-                        setSelectedDateKey(cell.dateKey);
+                        if (isSelected && (hasSaved || hasDeadlines)) {
+                          router.push(`/focus?dateKey=${cell.dateKey}`);
+                        } else {
+                          setSelectedDateKey(cell.dateKey);
+                        }
                       }}
                       style={[
                         styles.archiveGridCell,
@@ -535,7 +562,7 @@ export default function CalendarScreen() {
                                 },
                               ]}
                             >
-                              <PlatformLogo platform={firstSavedItem.source} size={14} />
+                              <PlatformLogo platform={resolveItemPlatform(firstSavedItem.source, firstSavedItem.url)} size={14} />
                             </View>
                           )}
                           <View style={styles.cellDarkOverlay} />
@@ -613,7 +640,22 @@ export default function CalendarScreen() {
             </NeoCard>
 
             {/* Selected Date Detail Section ("Arsip Tanggal Ini") */}
-            <View style={styles.sectionContainer}>
+            <Animated.View
+              style={[
+                styles.sectionContainer,
+                {
+                  opacity: dateListAnim,
+                  transform: [
+                    {
+                      translateY: dateListAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [14, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
               <View style={styles.sectionTitleRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.sectionHeading, { color: theme.text }]}>
@@ -677,7 +719,7 @@ export default function CalendarScreen() {
                               },
                             ]}
                           >
-                            <PlatformLogo platform={item.source} size={14} />
+                            <PlatformLogo platform={resolveItemPlatform(item.source, item.url)} size={14} />
                           </View>
                         </View>
 
@@ -780,7 +822,7 @@ export default function CalendarScreen() {
                   </Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
           </>
         )}
 
@@ -788,7 +830,28 @@ export default function CalendarScreen() {
         {/* VIEW 2: GRID SEMUA ARSIP (INSTAGRAM PROFILE/ARCHIVE GRID)  */}
         {/* ========================================================= */}
         {mainView === "grid" && (
-          <View style={styles.gridSectionContainer}>
+          <Animated.View
+            style={[
+              styles.gridSectionContainer,
+              {
+                opacity: viewSwitchAnim,
+                transform: [
+                  {
+                    translateY: viewSwitchAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [16, 0],
+                    }),
+                  },
+                  {
+                    scale: viewSwitchAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.97, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
             <View style={styles.gridSectionHeader}>
               <Text style={[styles.gridSectionTitle, { color: theme.text }]}>
                 Semua Koleksi Simpanan
@@ -829,7 +892,7 @@ export default function CalendarScreen() {
                           },
                         ]}
                       >
-                        <PlatformLogo platform={item.source} size={13} />
+                        <PlatformLogo platform={resolveItemPlatform(item.source, item.url)} size={13} />
                       </View>
 
                       {/* Date Stamp Tag at Bottom */}
@@ -878,7 +941,7 @@ export default function CalendarScreen() {
                 </Text>
               </View>
             )}
-          </View>
+          </Animated.View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -1376,15 +1439,15 @@ const styles = StyleSheet.create({
   mediaGridRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    columnGap: "2.2%",
+    rowGap: 14,
   },
   mediaGridItem: {
-    width: GRID_ITEM_SIZE,
-    marginBottom: 12,
+    width: "31.8%",
   },
   mediaGridThumbnail: {
-    width: GRID_ITEM_SIZE,
-    height: GRID_ITEM_SIZE,
+    width: "100%",
+    aspectRatio: 1,
     borderRadius: 8,
     borderWidth: 2,
     borderColor: "#000000",
