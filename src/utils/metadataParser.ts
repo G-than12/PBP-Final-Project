@@ -1,9 +1,28 @@
 export type SupportedPlatform =
   | "Instagram"
+  | "Threads"
   | "TikTok"
   | "Pinterest"
   | "X"
   | "YouTube"
+  | "GitHub"
+  | "Facebook"
+  | "LinkedIn"
+  | "Reddit"
+  | "Medium"
+  | "Figma"
+  | "Notion"
+  | "Spotify"
+  | "Dribbble"
+  | "Behance"
+  | "Shopee"
+  | "Tokopedia"
+  | "Google Drive"
+  | "Canva"
+  | "Telegram"
+  | "Discord"
+  | "Substack"
+  | "Wikipedia"
   | "Web";
 
 export interface ParsedMetadata {
@@ -95,62 +114,259 @@ export function extractDomain(url: string): string {
   }
 }
 
+interface PlatformRule {
+  platform: SupportedPlatform;
+  domains: string[];
+  canonicalDomain: string;
+  inferredTitle: string;
+  inferredDescription: string;
+  badgeColor: string;
+  suggestedTags: string[];
+}
+
+const PLATFORM_RULES: PlatformRule[] = [
+  {
+    platform: "Threads",
+    domains: ["threads.net", "threads.com"],
+    canonicalDomain: "threads.net",
+    inferredTitle: "Postingan Threads",
+    inferredDescription: "Utas, opini, atau diskusi menarik dari Threads.",
+    badgeColor: "#000000",
+    suggestedTags: ["threads", "utas", "diskusi"],
+  },
+  {
+    platform: "Instagram",
+    domains: ["instagram.com", "instagr.am"],
+    canonicalDomain: "instagram.com",
+    inferredTitle: "Instagram Reel / Post",
+    inferredDescription: "Postingan visual atau inspirasi dari Instagram.",
+    badgeColor: "#E1306C",
+    suggestedTags: ["instagram", "reels", "inspirasi"],
+  },
+  {
+    platform: "TikTok",
+    domains: ["tiktok.com"],
+    canonicalDomain: "tiktok.com",
+    inferredTitle: "Video TikTok",
+    inferredDescription: "Video pendek menarik dari kreator TikTok.",
+    badgeColor: "#000000",
+    suggestedTags: ["tiktok", "video", "tren"],
+  },
+  {
+    platform: "Pinterest",
+    domains: ["pinterest.", "pin.it"],
+    canonicalDomain: "pinterest.com",
+    inferredTitle: "Ide Pinterest",
+    inferredDescription: "Inspirasi desain, estetika, dan proyek DIY.",
+    badgeColor: "#BD081C",
+    suggestedTags: ["pinterest", "desain", "ide"],
+  },
+  {
+    platform: "X",
+    domains: ["twitter.com", "x.com", "t.co"],
+    canonicalDomain: "x.com",
+    inferredTitle: "Thread di X",
+    inferredDescription: "Wawasan, diskusi, atau utas opini dari X.",
+    badgeColor: "#14171A",
+    suggestedTags: ["x", "utas", "wawasan"],
+  },
+  {
+    platform: "YouTube",
+    domains: ["youtube.com", "youtu.be"],
+    canonicalDomain: "youtube.com",
+    inferredTitle: "Video YouTube",
+    inferredDescription: "Video edukasi, tutorial, atau dokumenter.",
+    badgeColor: "#FF0000",
+    suggestedTags: ["youtube", "tutorial", "video"],
+  },
+  {
+    platform: "GitHub",
+    domains: ["github.com", "github.io"],
+    canonicalDomain: "github.com",
+    inferredTitle: "Repositori GitHub",
+    inferredDescription: "Kode sumber, repositori, atau dokumentasi proyek di GitHub.",
+    badgeColor: "#181717",
+    suggestedTags: ["github", "kode", "referensi"],
+  },
+  {
+    platform: "Facebook",
+    domains: ["facebook.com", "fb.watch", "fb.com"],
+    canonicalDomain: "facebook.com",
+    inferredTitle: "Postingan Facebook",
+    inferredDescription: "Postingan, video, atau artikel dari Facebook.",
+    badgeColor: "#1877F2",
+    suggestedTags: ["facebook", "sosial"],
+  },
+  {
+    platform: "LinkedIn",
+    domains: ["linkedin.com", "lnkd.in"],
+    canonicalDomain: "linkedin.com",
+    inferredTitle: "Postingan LinkedIn",
+    inferredDescription: "Wawasan karier, industri, atau artikel profesional dari LinkedIn.",
+    badgeColor: "#0A66C2",
+    suggestedTags: ["linkedin", "karier", "artikel"],
+  },
+  {
+    platform: "Reddit",
+    domains: ["reddit.com", "redd.it"],
+    canonicalDomain: "reddit.com",
+    inferredTitle: "Diskusi Reddit",
+    inferredDescription: "Utas diskusi dan tanya jawab komunitas di Reddit.",
+    badgeColor: "#FF4500",
+    suggestedTags: ["reddit", "diskusi"],
+  },
+  {
+    platform: "Medium",
+    domains: ["medium.com"],
+    canonicalDomain: "medium.com",
+    inferredTitle: "Artikel Medium",
+    inferredDescription: "Artikel mendalam dan tulisan dari kreator di Medium.",
+    badgeColor: "#000000",
+    suggestedTags: ["medium", "artikel", "bacaan"],
+  },
+  {
+    platform: "Figma",
+    domains: ["figma.com"],
+    canonicalDomain: "figma.com",
+    inferredTitle: "Desain Figma",
+    inferredDescription: "File desain UI/UX atau prototipe di Figma.",
+    badgeColor: "#1E1E1E",
+    suggestedTags: ["figma", "desain", "uiux"],
+  },
+  {
+    platform: "Notion",
+    domains: ["notion.so", "notion.site"],
+    canonicalDomain: "notion.so",
+    inferredTitle: "Halaman Notion",
+    inferredDescription: "Catatan, template, atau dokumen di Notion.",
+    badgeColor: "#000000",
+    suggestedTags: ["notion", "catatan", "referensi"],
+  },
+  {
+    platform: "Spotify",
+    domains: ["spotify.com", "spotify.link"],
+    canonicalDomain: "spotify.com",
+    inferredTitle: "Audio Spotify",
+    inferredDescription: "Lagu, playlist, atau podcast di Spotify.",
+    badgeColor: "#1DB954",
+    suggestedTags: ["spotify", "musik", "podcast"],
+  },
+  {
+    platform: "Dribbble",
+    domains: ["dribbble.com"],
+    canonicalDomain: "dribbble.com",
+    inferredTitle: "Inspirasi Dribbble",
+    inferredDescription: "Karya desain visual dan UI/UX dari Dribbble.",
+    badgeColor: "#EA4C89",
+    suggestedTags: ["dribbble", "desain", "inspirasi"],
+  },
+  {
+    platform: "Behance",
+    domains: ["behance.net"],
+    canonicalDomain: "behance.net",
+    inferredTitle: "Portofolio Behance",
+    inferredDescription: "Studi kasus dan portofolio kreatif di Behance.",
+    badgeColor: "#1769FF",
+    suggestedTags: ["behance", "desain", "portofolio"],
+  },
+  {
+    platform: "Shopee",
+    domains: ["shopee.", "shp.ee"],
+    canonicalDomain: "shopee.co.id",
+    inferredTitle: "Produk Shopee",
+    inferredDescription: "Produk atau daftar belanja yang disimpan dari Shopee.",
+    badgeColor: "#EE4D2D",
+    suggestedTags: ["shopee", "belanja"],
+  },
+  {
+    platform: "Tokopedia",
+    domains: ["tokopedia.com", "tokopedia.link"],
+    canonicalDomain: "tokopedia.com",
+    inferredTitle: "Produk Tokopedia",
+    inferredDescription: "Produk atau daftar belanja yang disimpan dari Tokopedia.",
+    badgeColor: "#42B549",
+    suggestedTags: ["tokopedia", "belanja"],
+  },
+  {
+    platform: "Google Drive",
+    domains: ["drive.google.com", "docs.google.com"],
+    canonicalDomain: "drive.google.com",
+    inferredTitle: "Dokumen Google Drive",
+    inferredDescription: "Berkas atau dokumen yang disimpan dari Google Drive.",
+    badgeColor: "#4285F4",
+    suggestedTags: ["gdrive", "dokumen"],
+  },
+  {
+    platform: "Canva",
+    domains: ["canva.com"],
+    canonicalDomain: "canva.com",
+    inferredTitle: "Desain Canva",
+    inferredDescription: "Template atau desain grafis dari Canva.",
+    badgeColor: "#00C4CC",
+    suggestedTags: ["canva", "desain"],
+  },
+  {
+    platform: "Telegram",
+    domains: ["t.me", "telegram.me"],
+    canonicalDomain: "t.me",
+    inferredTitle: "Postingan Telegram",
+    inferredDescription: "Pesan, kanal, atau tautan dari Telegram.",
+    badgeColor: "#26A5E4",
+    suggestedTags: ["telegram", "diskusi"],
+  },
+  {
+    platform: "Discord",
+    domains: ["discord.com", "discord.gg"],
+    canonicalDomain: "discord.com",
+    inferredTitle: "Tautan Discord",
+    inferredDescription: "Komunitas atau pesan dari Discord.",
+    badgeColor: "#5865F2",
+    suggestedTags: ["discord", "komunitas"],
+  },
+  {
+    platform: "Substack",
+    domains: ["substack.com"],
+    canonicalDomain: "substack.com",
+    inferredTitle: "Newsletter Substack",
+    inferredDescription: "Artikel dan buletin bacaan dari Substack.",
+    badgeColor: "#FF6719",
+    suggestedTags: ["substack", "bacaan"],
+  },
+  {
+    platform: "Wikipedia",
+    domains: ["wikipedia.org"],
+    canonicalDomain: "wikipedia.org",
+    inferredTitle: "Artikel Wikipedia",
+    inferredDescription: "Referensi ensiklopedia dari Wikipedia.",
+    badgeColor: "#000000",
+    suggestedTags: ["wikipedia", "referensi"],
+  },
+];
+
+function matchesDomainPattern(domain: string, pattern: string): boolean {
+  if (pattern.endsWith(".")) {
+    // Prefix/country-TLD domain like "pinterest." or "shopee."
+    return domain.startsWith(pattern) || domain.includes(`.${pattern}`);
+  }
+  return domain === pattern || domain.endsWith(`.${pattern}`);
+}
+
 export function parseUrlMetadata(url: string): ParsedMetadata {
   const normalized = normalizeUrl(url);
   const domain = extractDomain(normalized).toLowerCase();
 
-  if (domain.includes("tiktok.com")) {
-    return {
-      platform: "TikTok",
-      domain: "tiktok.com",
-      inferredTitle: "Video TikTok",
-      inferredDescription: "Video pendek menarik dari kreator TikTok.",
-      badgeColor: "#000000",
-      suggestedTags: ["tiktok", "video", "tren"],
-    };
-  }
+  const matchedRule = PLATFORM_RULES.find((rule) =>
+    rule.domains.some((pattern) => matchesDomainPattern(domain, pattern))
+  );
 
-  if (domain.includes("instagram.com") || domain.includes("instagr.am")) {
+  if (matchedRule) {
     return {
-      platform: "Instagram",
-      domain: "instagram.com",
-      inferredTitle: "Instagram Reel / Post",
-      inferredDescription: "Postingan visual atau inspirasi dari Instagram.",
-      badgeColor: "#E1306C",
-      suggestedTags: ["instagram", "reels", "inspirasi"],
-    };
-  }
-
-  if (domain.includes("pinterest.com") || domain.includes("pin.it")) {
-    return {
-      platform: "Pinterest",
-      domain: "pinterest.com",
-      inferredTitle: "Ide Pinterest",
-      inferredDescription: "Inspirasi desain, estetika, dan proyek DIY.",
-      badgeColor: "#BD081C",
-      suggestedTags: ["pinterest", "desain", "ide"],
-    };
-  }
-
-  if (domain.includes("twitter.com") || domain.includes("x.com")) {
-    return {
-      platform: "X",
-      domain: "x.com",
-      inferredTitle: "Thread di X",
-      inferredDescription: "Wawasan, diskusi, atau utas opini dari X.",
-      badgeColor: "#14171A",
-      suggestedTags: ["x", "utas", "wawasan"],
-    };
-  }
-
-  if (domain.includes("youtube.com") || domain.includes("youtu.be")) {
-    return {
-      platform: "YouTube",
-      domain: "youtube.com",
-      inferredTitle: "Video YouTube",
-      inferredDescription: "Video edukasi, tutorial, atau dokumenter.",
-      badgeColor: "#FF0000",
-      suggestedTags: ["youtube", "tutorial", "video"],
+      platform: matchedRule.platform,
+      domain: matchedRule.canonicalDomain,
+      inferredTitle: matchedRule.inferredTitle,
+      inferredDescription: matchedRule.inferredDescription,
+      badgeColor: matchedRule.badgeColor,
+      suggestedTags: matchedRule.suggestedTags,
     };
   }
 
@@ -179,6 +395,16 @@ export function parseUrlMetadata(url: string): ParsedMetadata {
     badgeColor: "#2563EB",
     suggestedTags: ["referensi", "bacaan"],
   };
+}
+
+export function resolveItemPlatform(source?: string, url?: string): string {
+  if (source && source.trim() && source.trim() !== "Web") {
+    return source.trim();
+  }
+  if (url && url.trim()) {
+    return parseUrlMetadata(url).platform;
+  }
+  return "Web";
 }
 
 export function decodeHtmlEntities(input: string): string {
