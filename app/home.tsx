@@ -206,21 +206,6 @@ export default function HomeScreen() {
     return items.filter((i) => !i.isReviewed).length;
   }, [items]);
 
-  const pinnedItems = useMemo(() => {
-    return items.filter((i) => i.isPinned);
-  }, [items]);
-
-  const deadlineItems = useMemo(() => {
-    const now = Date.now();
-    return items
-      .filter((i) => i.deadline && i.deadline > now - 24 * 3600 * 1000)
-      .sort((a, b) => (a.deadline || 0) - (b.deadline || 0));
-  }, [items]);
-
-  const recentItems = useMemo(() => {
-    return [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, 4);
-  }, [items]);
-
   // Collection stats
   const collectionStats = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -243,7 +228,11 @@ export default function HomeScreen() {
   const sortedCollections = useMemo(() => {
     const roots = collections.filter((c) => !c.parentId);
     return roots.sort((a, b) => {
-      if (sortOption === "title") return a.name.localeCompare(b.name);
+      if (sortOption === "title") {
+        return a.name
+          .trim()
+          .localeCompare(b.name.trim(), "id", { sensitivity: "base", numeric: true });
+      }
       if (sortOption === "oldest") return (a.createdAt || 0) - (b.createdAt || 0);
       return (b.createdAt || 0) - (a.createdAt || 0);
     });
@@ -336,7 +325,7 @@ export default function HomeScreen() {
           >
             <Folder size={18} color={theme.text} />
             <View style={styles.plusMiniBadge}>
-              <Text style={styles.plusMiniBadgeText}>+</Text>
+              <Text style={[styles.plusMiniBadgeText, { color: theme.text }]}>+</Text>
             </View>
           </TouchableOpacity>
 
@@ -565,169 +554,6 @@ export default function HomeScreen() {
             })}
           </View>
         </View>
-
-        {/* Approaching Deadlines Section */}
-        {deadlineItems.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHead}>
-              <View style={styles.pinnedTitleRow}>
-                <Clock size={16} color={theme.text} strokeWidth={2.4} />
-                <Text style={[styles.sectionHeading, { color: theme.text }]}>
-                  Tenggat Terdekat ({deadlineItems.length})
-                </Text>
-              </View>
-            </View>
-
-            {deadlineItems.length === 1 ? (
-              <View style={styles.gridItem}>
-                <FigmaItemCard
-                  item={deadlineItems[0]}
-                  showCollection={true}
-                  onPress={() => router.push(`/link/${deadlineItems[0].id}`)}
-                  onLongPress={(rect) => {
-                    setItemActionTarget({
-                      item: deadlineItems[0],
-                      rect,
-                    });
-                  }}
-                />
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalScrollList}
-              >
-                {deadlineItems.map((item, index) => (
-                  <View key={`deadline-${item.id}-${index}`} style={styles.horizontalItemWrap}>
-                    <FigmaItemCard
-                      item={item}
-                      showCollection={true}
-                      onPress={() => router.push(`/link/${item.id}`)}
-                      onLongPress={(rect) => {
-                        setItemActionTarget({
-                          item,
-                          rect,
-                        });
-                      }}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* Pinned Bookmarks Section */}
-        {pinnedItems.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHead}>
-              <View style={styles.pinnedTitleRow}>
-                <Pin size={16} color={theme.text} />
-                <Text style={[styles.sectionHeading, { color: theme.text }]}>
-                  Disematkan ({pinnedItems.length})
-                </Text>
-              </View>
-            </View>
-
-            {pinnedItems.length === 1 ? (
-              <View style={styles.gridItem}>
-                <FigmaItemCard
-                  item={pinnedItems[0]}
-                  showCollection={true}
-                  onPress={() => router.push(`/link/${pinnedItems[0].id}`)}
-                  onLongPress={(rect) => {
-                    setItemActionTarget({
-                      item: pinnedItems[0],
-                      rect,
-                    });
-                  }}
-                />
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalScrollList}
-              >
-                {pinnedItems.map((item, index) => (
-                  <View key={`${item.id}-${index}`} style={styles.horizontalItemWrap}>
-                    <FigmaItemCard
-                      item={item}
-                      showCollection={true}
-                      onPress={() => router.push(`/link/${item.id}`)}
-                      onLongPress={(rect) => {
-                        setItemActionTarget({
-                          item,
-                          rect,
-                        });
-                      }}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
-
-        {/* Recent Saves Section */}
-        {items.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHead}>
-              <Text style={[styles.sectionHeading, { color: theme.text }]}>
-                Simpanan Terbaru ({items.length})
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.selectionAsync();
-                  router.push("/search");
-                }}
-              >
-                <Text style={[styles.seeAllText, { color: theme.primary }]}>
-                  Lihat Semua →
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {recentItems.length === 1 ? (
-              <View style={styles.gridItem}>
-                <FigmaItemCard
-                  item={recentItems[0]}
-                  showCollection={true}
-                  onPress={() => router.push(`/link/${recentItems[0].id}`)}
-                  onLongPress={(rect) => {
-                    setItemActionTarget({
-                      item: recentItems[0],
-                      rect,
-                    });
-                  }}
-                />
-              </View>
-            ) : (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.horizontalScrollList}
-              >
-                {recentItems.map((item, index) => (
-                  <View key={`${item.id}-${index}`} style={styles.horizontalItemWrap}>
-                    <FigmaItemCard
-                      item={item}
-                      showCollection={true}
-                      onPress={() => router.push(`/link/${item.id}`)}
-                      onLongPress={(rect) => {
-                        setItemActionTarget({
-                          item,
-                          rect,
-                        });
-                      }}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        )}
       </ScrollView>
 
       {/* Dimmed backdrop when Speed Dial is open */}
