@@ -43,6 +43,7 @@ import { TagManagerSheet } from "../../src/components/sheets/TagManagerSheet";
 import { DeadlinePickerSheet } from "../../src/components/sheets/DeadlinePickerSheet";
 import {
   fetchUrlMetadata,
+  resolveItemPlatform,
   formatItemDateTime,
   formatDisplayUrl,
   preserveFormattingDescription,
@@ -310,10 +311,11 @@ export default function LinkDetailScreen() {
   return (
     <SafeAreaView edges={["top"]} style={[styles.container, { backgroundColor: isDark ? theme.background : "#111111" }]}>
       <ScrollView
+        key={isDark ? "dark" : "light"}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { backgroundColor: isDark ? theme.background : "#FFFFFF" },
+          { backgroundColor: isDark ? theme.surface : "#FFFFFF" },
         ]}
         bounces={false}
       >
@@ -384,9 +386,9 @@ export default function LinkDetailScreen() {
         >
           {/* Platform Row: Icon + Source */}
           <View style={styles.platformRow}>
-            <PlatformLogo platform={currentItem.source} size={24} />
+            <PlatformLogo platform={resolveItemPlatform(currentItem.source, currentItem.url)} size={24} />
             <Text style={[styles.platformName, { color: theme.text }]}>
-              {currentItem.source || "TikTok"}
+              {resolveItemPlatform(currentItem.source, currentItem.url)}
             </Text>
           </View>
 
@@ -951,7 +953,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   scrollContent: {
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingBottom: 0,
     backgroundColor: "#FFFFFF",
   },
   heroWrapper: {
@@ -1006,6 +1009,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F7CB54",
   },
   detailSheet: {
+    flex: 1,
     marginTop: -24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -1014,8 +1018,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 32,
-    minHeight: 500,
+    paddingBottom: 24,
   },
   platformRow: {
     flexDirection: "row",
