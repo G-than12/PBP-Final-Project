@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Collection } from "../../types/models";
 import { AppIcon } from "./AppIcon";
@@ -17,6 +17,7 @@ interface ManilaFolderCardProps {
   collection: Collection;
   itemCount: number;
   subcollectionCount?: number;
+  showSubcollectionCount?: boolean;
   freshCount?: number;
   isMain?: boolean;
   onPress: () => void;
@@ -27,14 +28,34 @@ export function ManilaFolderCard({
   collection,
   itemCount,
   subcollectionCount = 0,
+  showSubcollectionCount = true,
   freshCount = 0,
   isMain = false,
   onPress,
   onLongPress,
 }: ManilaFolderCardProps) {
   const cardRef = React.useRef<any>(null);
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.94,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 6,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 80,
+      friction: 6,
+    }).start();
+  };
 
   const handlePress = () => {
     Haptics.selectionAsync();
@@ -61,105 +82,110 @@ export function ManilaFolderCard({
   };
 
   const folderColor = collection.color || "#F7CB54";
+  const borderColor = isDark ? "#4A4640" : "#000000";
 
   return (
-    <View ref={cardRef} collapsable={false}>
+    <Animated.View
+      ref={cardRef}
+      collapsable={false}
+      style={{ transform: [{ scale: scaleAnim }] }}
+    >
       <Pressable
+        key={isDark ? "dark" : "light"}
         onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
         onLongPress={onLongPress ? handleLongPress : undefined}
         delayLongPress={300}
-        style={({ pressed }) => [
-          styles.folderCard,
-          {
-            backgroundColor: isDark ? "#242220" : "#FFFFFF",
-            borderColor: isDark ? "#4A4640" : "#000000",
-          },
-          pressed ? styles.pressedOffset : styles.hardShadow,
-        ]}
       >
-      {/* Folder Tab on top left */}
-      <View
-        style={[
-          styles.folderTab,
-          {
-            backgroundColor: folderColor,
-            borderColor: isDark ? "#4A4640" : "#000000",
-          },
-        ]}
-      />
+        {({ pressed }) => (
+          <View
+            style={[
+              styles.folderCard,
+              {
+                backgroundColor: theme.card,
+                borderColor,
+              },
+              pressed ? styles.pressedOffset : styles.hardShadow,
+            ]}
+          >
+            {/* Compact Folder Tab on top left */}
+            <View
+              style={[
+                styles.folderTab,
+                {
+                  backgroundColor: folderColor,
+                  borderColor,
+                },
+              ]}
+            />
 
-      {/* Horizontal Colored Stripe */}
-      <View
-        style={[
-          styles.colorStripe,
-          {
-            backgroundColor: folderColor,
-            borderColor: isDark ? "#4A4640" : "#000000",
-          },
-        ]}
-      />
+            {/* Unreviewed "BARU" sticker badge */}
+            {freshCount > 0 && (
+              <View style={styles.freshBadge}>
+                <Text style={styles.freshBadgeText}>
+                  {freshCount > 1 ? `${freshCount} BARU` : "BARU"}
+                </Text>
+              </View>
+            )}
 
-      {/* Folder Icon in white square */}
-      <View
-        style={[
-          styles.iconBox,
-          {
-            backgroundColor: isDark ? "#2E2B28" : "#FFFFFF",
-            borderColor: isDark ? "#4A4640" : "#000000",
-          },
-        ]}
-      >
-        <AppIcon name={collection.icon} size={20} color={isDark ? "#FFFFFF" : "#000000"} />
-      </View>
+            {/* Main Collection "UTAMA" badge */}
+            {isMain && (
+              <View style={styles.mainBadge}>
+                <Text style={styles.mainBadgeText}>UTAMA</Text>
+              </View>
+            )}
 
-      {/* Unreviewed "BARU" badge */}
-      {freshCount > 0 && (
-        <View style={styles.freshBadge}>
-          <Text style={styles.freshBadgeText}>
-            {freshCount > 1 ? `${freshCount} BARU` : "BARU"}
-          </Text>
-        </View>
-      )}
+            {/* Compact Horizontal Content: Colored Icon Box + Folder Info */}
+            <View style={styles.rowContent}>
+              <View
+                style={[
+                  styles.iconBox,
+                  {
+                    backgroundColor: folderColor,
+                    borderColor,
+                  },
+                ]}
+              >
+                <AppIcon name={collection.icon} size={19} color="#000000" />
+              </View>
 
-      {/* Main Collection "UTAMA" badge */}
-      {isMain && (
-        <View style={styles.mainBadge}>
-          <Text style={styles.mainBadgeText}>UTAMA</Text>
-        </View>
-      )}
-
-      {/* Folder Information */}
-      <View style={styles.textContainer}>
-        <Text
-          style={[styles.folderName, { color: theme.text }]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {collection.name}
-        </Text>
-        <Text style={[styles.folderStats, { color: theme.textMuted }]}>
-          {itemCount} simpanan
-        </Text>
-        <Text style={[styles.folderSubstats, { color: theme.textSecondary }]}>
-          {subcollectionCount} subkoleksi
-        </Text>
-      </View>
-    </Pressable>
-  </View>
-);
+              <View style={styles.textContainer}>
+                <Text
+                  style={[styles.folderName, { color: theme.text }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {collection.name}
+                </Text>
+                <Text style={[styles.folderStats, { color: theme.textMuted }]}>
+                  {itemCount} simpanan
+                </Text>
+                {showSubcollectionCount && (
+                  <Text style={[styles.folderSubstats, { color: theme.textSecondary }]}>
+                    {subcollectionCount} subkoleksi
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+      </Pressable>
+    </Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({
   folderCard: {
-    minHeight: 164,
+    minHeight: 78,
     borderWidth: 2,
-    marginTop: 12,
-    paddingTop: 54,
-    paddingHorizontal: 12,
-    paddingBottom: 14,
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
     position: "relative",
-    borderRadius: 6,
+    borderRadius: 12,
     overflow: "visible",
+    justifyContent: "center",
   },
   hardShadow: {
     shadowColor: "#000000",
@@ -173,84 +199,77 @@ const styles = StyleSheet.create({
   },
   folderTab: {
     position: "absolute",
-    top: -12,
-    left: 8,
-    width: "55%",
-    height: 24,
+    top: -9,
+    left: 10,
+    width: 46,
+    height: 9,
     borderWidth: 2,
     borderBottomWidth: 0,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
+    borderTopLeftRadius: 5,
+    borderTopRightRadius: 5,
   },
-  colorStripe: {
-    position: "absolute",
-    top: 10,
-    left: 0,
-    right: 0,
-    height: 34,
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
+  rowContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
   iconBox: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderWidth: 2,
-    borderRadius: 4,
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
-    zIndex: 2,
   },
   freshBadge: {
     position: "absolute",
-    top: 32,
+    top: -8,
     right: 8,
     backgroundColor: "#F7CB54",
     borderWidth: 1.5,
     borderColor: "#000000",
     paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 3,
+    paddingVertical: 1.5,
+    borderRadius: 4,
     zIndex: 3,
   },
   freshBadgeText: {
-    fontSize: 8,
+    fontSize: 7.5,
     fontWeight: "900",
     color: "#000000",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   mainBadge: {
     position: "absolute",
-    bottom: 10,
+    bottom: 6,
     right: 8,
     backgroundColor: "#111111",
     paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingVertical: 1.5,
     borderRadius: 3,
   },
   mainBadgeText: {
-    fontSize: 7,
+    fontSize: 6.5,
     fontWeight: "900",
     color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   textContainer: {
-    zIndex: 2,
-    marginTop: 4,
+    flex: 1,
+    minWidth: 0,
   },
   folderName: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "800",
     marginBottom: 2,
   },
   folderStats: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "600",
   },
   folderSubstats: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: "500",
     marginTop: 1,
   },
 });
-
