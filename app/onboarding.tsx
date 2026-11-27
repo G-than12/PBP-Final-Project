@@ -662,12 +662,9 @@ export default function OnboardingScreen() {
           <View style={styles.plainBtn} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.readyScroll}
-          showsVerticalScrollIndicator={false}
-        >
+        <View style={styles.readyContainer}>
           <View style={styles.readyCenter}>
-            <SimpanInMascot size={84} />
+            <SimpanInMascot size={60} />
             <Text style={[styles.readyTitle, { color: theme.text }]}>
               Semua Siap, Waktunya Rapi!
             </Text>
@@ -723,7 +720,7 @@ export default function OnboardingScreen() {
             >
               <View style={styles.quickTipHeader}>
                 <Lightbulb
-                  size={16}
+                  size={15}
                   color={isDark ? "#F7CB54" : "#000000"}
                   strokeWidth={2.5}
                 />
@@ -735,29 +732,25 @@ export default function OnboardingScreen() {
                 Coba buka link artikel atau video yang sedang kamu nikmati, lalu pilih Bagikan (Share) langsung ke SimpanIn.
               </Text>
             </View>
-
-            {/* Action Section */}
-            <View style={styles.readyActionSection}>
-              <NeoButton
-                variant="yellow"
-                size="lg"
-                style={styles.startAppBtn}
-                onPress={() => {
-                  setIsProcessing(true);
-                  setTimeout(() => {
-                    finishOnboarding();
-                  }, 300);
-                }}
-              >
-                {isProcessing ? "Menyiapkan SimpanIn..." : "Mulai Gunakan SimpanIn →"}
-              </NeoButton>
-
-              <Text style={[styles.readyFootnote, { color: theme.textMuted }]}>
-                Gratis · Tanpa Perlu Akun · Tersimpan di Perangkatmu
-              </Text>
-            </View>
           </View>
-        </ScrollView>
+
+          {/* Action Section */}
+          <View style={styles.readyActionSection}>
+            <NeoButton
+              variant="yellow"
+              size="lg"
+              style={styles.startAppBtn}
+              onPress={() => {
+                setIsProcessing(true);
+                setTimeout(() => {
+                  finishOnboarding();
+                }, 300);
+              }}
+            >
+              {isProcessing ? "Menyiapkan SimpanIn..." : "Mulai Gunakan SimpanIn →"}
+            </NeoButton>
+          </View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -2114,29 +2107,31 @@ const styles = StyleSheet.create({
   // ------------------------------------------
   // STEP 7: READY SCREEN STYLES
   // ------------------------------------------
-  readyScroll: {
+  readyContainer: {
+    flex: 1,
+    justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
   readyCenter: {
     alignItems: "center",
-    paddingTop: 10,
   },
   readyTitle: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "900",
     letterSpacing: -0.5,
     textAlign: "center",
     color: "#000000",
-    marginTop: 14,
-    lineHeight: 32,
+    marginTop: 8,
+    lineHeight: 27,
   },
   readySub: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
     color: "#666158",
     textAlign: "center",
-    marginTop: 6,
+    marginTop: 4,
     maxWidth: 340,
   },
   readyCardBox: {
@@ -2146,42 +2141,43 @@ const styles = StyleSheet.create({
     borderColor: "#000000",
     ...NEO_SHADOW_SM,
     borderRadius: 14,
-    marginTop: 20,
+    marginTop: 12,
     overflow: "hidden",
   },
   readyRowItem: {
     flexDirection: "row",
-    padding: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     alignItems: "flex-start",
-    gap: 12,
+    gap: 10,
   },
   readyRowBorder: {
     borderBottomWidth: 1.5,
     borderColor: "#EAE6DE",
   },
   readyIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     borderWidth: 1.5,
     borderColor: "#000000",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
   readyTextCol: {
     flex: 1,
   },
   readyItemTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "900",
     color: "#000000",
-    marginBottom: 3,
+    marginBottom: 1,
   },
   readyItemDesc: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#666158",
-    lineHeight: 17,
+    lineHeight: 15,
   },
   quickTipCard: {
     width: "100%",
@@ -2190,14 +2186,14 @@ const styles = StyleSheet.create({
     borderColor: "#000000",
     ...NEO_SHADOW_SM,
     borderRadius: 12,
-    padding: 14,
-    marginTop: 16,
+    padding: 10,
+    marginTop: 10,
   },
   quickTipHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 6,
+    marginBottom: 3,
   },
   quickTipBadgeText: {
     fontSize: 11,
@@ -2206,23 +2202,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   quickTipBody: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#44403C",
-    lineHeight: 18,
+    lineHeight: 15,
   },
   readyActionSection: {
     width: "100%",
-    marginTop: 24,
+    marginTop: 10,
     alignItems: "center",
   },
   startAppBtn: {
     width: "100%",
-  },
-  readyFootnote: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#8A8478",
-    textAlign: "center",
-    marginTop: 12,
   },
 });
