@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Switch,
   Alert,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
@@ -28,7 +28,15 @@ import {
   Pin,
   Compass,
   Bell,
+  UserCheck,
+  LogIn,
+  LogOut,
 } from "lucide-react-native";
+import {
+  SupabaseUserInfo,
+  getCurrentSupabaseUser,
+  signOutSupabase,
+} from "../../src/services/supabaseSync";
 import { useSimpanInStore } from "../../src/store/useSimpanInStore";
 import { THEME_LIGHT, THEME_DARK } from "../../src/constants/theme";
 import { NeoCard } from "../../src/components/ui/NeoCard";
@@ -67,6 +75,23 @@ export default function SettingsMainScreen() {
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showDemoConfirm, setShowDemoConfirm] = useState(false);
+  const [accountUser, setAccountUser] = useState<SupabaseUserInfo | null>(null);
+  const setCloudSync = useSimpanInStore((state) => state.setCloudSync);
+
+  useFocusEffect(
+    useCallback(() => {
+      getCurrentSupabaseUser()
+        .then((u) => setAccountUser(u))
+        .catch(() => setAccountUser(null));
+    }, [])
+  );
+
+  const handleSignOutAccount = async () => {
+    Haptics.selectionAsync();
+    await signOutSupabase();
+    setAccountUser(null);
+    setCloudSync(false);
+  };
 
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
 
@@ -110,7 +135,7 @@ export default function SettingsMainScreen() {
     setShowResetConfirm(false);
     Alert.alert(
       "Database Direset",
-      "Semua simpanan dan koleksi kustom telah dibersihkan. Ruang kerja Anda kini bersih dengan koleksi 'Belum Diurutkan'."
+      "Semua simpanan dan koleksi kustom telah dibersihkan. Ruang kerja Anda kini bersih dengan koleksi 'Utama'."
     );
   };
 
@@ -166,6 +191,62 @@ export default function SettingsMainScreen() {
             </View>
           </View>
         </NeoCard>
+
+        {/* Akun SimpanIn Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeading, { color: theme.textMuted }]}>
+            AKUN SIMPANIN
+          </Text>
+          {accountUser ? (
+            <NeoCard color={theme.card} style={styles.settingRowCard}>
+              <View style={styles.rowLeft}>
+                <View style={[styles.iconBox, { backgroundColor: "#A6E3D1" }]}>
+                  <UserCheck size={20} color="#000000" />
+                </View>
+                <View style={styles.rowTextCol}>
+                  <Text style={[styles.rowTitle, { color: theme.text }]} numberOfLines={1}>
+                    {accountUser.email}
+                  </Text>
+                  <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
+                    Akun cloud terhubung
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={handleSignOutAccount}
+                style={[styles.accountLogoutBtn, { borderColor: isDark ? "#4A4640" : "#000000" }]}
+              >
+                <LogOut size={14} color="#EF4444" />
+                <Text style={styles.accountLogoutText}>Keluar</Text>
+              </TouchableOpacity>
+            </NeoCard>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push("/auth");
+              }}
+            >
+              <NeoCard color={theme.card} style={styles.settingRowCard}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: "#8FC9FF" }]}>
+                    <LogIn size={20} color="#000000" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={[styles.rowTitle, { color: theme.text }]}>
+                      Masuk / Daftar Akun
+                    </Text>
+                    <Text style={[styles.rowSubtitle, { color: theme.textMuted }]}>
+                      Simpan & sinkronkan koleksimu ke cloud
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color={theme.textMuted} />
+              </NeoCard>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Statistics Dashboard */}
         <View style={styles.section}>
@@ -521,7 +602,7 @@ export default function SettingsMainScreen() {
       <NeoConfirmModal
         visible={showResetConfirm}
         title="Hapus semua data?"
-        message="Semua link dan koleksi kustom akan dihapus permanen. Folder 'Belum Diurutkan' akan dikosongkan."
+        message="Semua link dan koleksi kustom akan dihapus permanen. Folder 'Utama' akan dikosongkan."
         confirmText="Hapus Semua"
         cancelText="Batal"
         isDestructive
@@ -688,6 +769,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     marginTop: 2,
+  },
+  accountLogoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1.8,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  accountLogoutText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#EF4444",
   },
   footerContainer: {
     alignItems: "center",
