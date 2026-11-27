@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
   Modal,
   TouchableWithoutFeedback,
   StyleSheet,
+  Animated,
 } from "react-native";
 import { NEO_SHADOW_LG, THEME_LIGHT, THEME_DARK } from "../../constants/theme";
 import { useSimpanInStore } from "../../store/useSimpanInStore";
@@ -33,26 +34,50 @@ export function NeoConfirmModal({
 }: NeoConfirmModalProps) {
   const isDark = useSimpanInStore((state) => state.settings.darkMode);
   const theme = isDark ? THEME_DARK : THEME_LIGHT;
+  const popAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      popAnim.setValue(0);
+      Animated.spring(popAnim, {
+        toValue: 1,
+        tension: 85,
+        friction: 7,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
 
   return (
     <Modal
+      key={isDark ? "dark" : "light"}
       visible={visible}
       transparent
-      animationType="fade"
+      animationType="none"
       onRequestClose={onCancel}
     >
-      <View style={styles.overlay}>
+      <Animated.View style={[styles.overlay, { opacity: popAnim }]}>
         {/* Backdrop touchable to close */}
         <TouchableWithoutFeedback onPress={onCancel}>
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
-        <View
+        <Animated.View
           style={[
             styles.box,
             {
               backgroundColor: theme.surface,
               borderColor: isDark ? "#4A4640" : "#000000",
+              transform: [
+                {
+                  scale: popAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.88, 1],
+                  }),
+                },
+              ],
             },
             NEO_SHADOW_LG,
           ]}
@@ -79,8 +104,8 @@ export function NeoConfirmModal({
               {confirmText}
             </NeoButton>
           </View>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
